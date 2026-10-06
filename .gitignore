@@ -147,3 +147,9 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# Proyecto Piquantum
+backend/vendor/
+backend/public/spa/
+.DS_Store
+.vscode/
