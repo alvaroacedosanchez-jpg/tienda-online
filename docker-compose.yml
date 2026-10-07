@@ -1,11 +1,11 @@
 
 services:
   mariadb:
-    image: mariadb:latest
+    image: mariadb:12.1
     container_name: piquantum_db
     restart: unless-stopped
     environment:
-      MARIADB_ROOT_PASSWORD: root
+      MARIADB_ROOT_PASSWORD: 1234
       MARIADB_DATABASE: piquantum_db
     ports:
       - "3306:3306"
