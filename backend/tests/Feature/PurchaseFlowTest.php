@@ -84,16 +84,16 @@ class PurchaseFlowTest extends TestCase
 
     public function test_totals_apply_discount_shipping_and_vat(): void
     {
-        $product = Product::where('sku', 'TEC-002')->first(); // 34,95 €
+        $product = Product::where('sku', 'SAL-003')->first(); // 5,90 €
         $this->post(route('cart.add', $product), ['quantity' => 1]);
         $this->post(route('cart.code'), ['code' => 'BIENVENIDA10']);
         $this->post('/checkout', $this->customerData());
 
         $order = Order::firstOrFail();
-        $this->assertEquals(34.95, (float) $order->subtotal);
-        $this->assertEquals(3.50, (float) $order->discount);   // 10 % redondeado
+        $this->assertEquals(5.90, (float) $order->subtotal);
+        $this->assertEquals(0.59, (float) $order->discount);   // 10 %
         $this->assertEquals(4.95, (float) $order->shipping);   // por debajo de 60 €
-        $this->assertEquals(36.40, (float) $order->total);
+        $this->assertEquals(10.26, (float) $order->total);
     }
 
     public function test_checkout_validates_input(): void

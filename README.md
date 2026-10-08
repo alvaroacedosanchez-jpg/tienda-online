@@ -3,12 +3,12 @@
 > ⚠️ **Prototipo académico sin actividad comercial real.** Datos ficticios, pagos simulados, nada se envía.
 > Asignatura: Soluciones Informáticas para la Empresa · Tarea 1.
 
-Tienda online de accesorios de escritorio (empresa ficticia **Piquantum**) hecha con **Laravel (PHP) + Blade + MariaDB/MySQL**.
+Tienda online de salsas picantes (empresa ficticia **Piquantum**) hecha con **Laravel (PHP) + Blade + MariaDB/MySQL**.
 Genera pedidos y **eventos de negocio** que otro sistema podrá consumir en la Tarea 2.
 
 ## Funcionalidad
 
-- Portada, catálogo por categorías y ficha de producto (10 productos, 3 categorías).
+- Portada, catálogo por categorías y ficha de producto (9 productos, 4 categorías).
 - Carrito en sesión, código de descuento, envío (gratis desde 60 €) e IVA (21 % incluido).
 - Checkout con validación, **pago simulado** (tarjeta/transferencia) y pedido con referencia única (`PQ-YYYYMMDD-XXXXXX`).
 - Estados de pedido: `creado → pagado_simulado → pendiente_preparacion → enviado`, además de `cancelado` e `incidencia`.

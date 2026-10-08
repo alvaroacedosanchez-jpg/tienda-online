@@ -2,7 +2,7 @@
 
 return [
     'name' => env('SHOP_NAME', 'Piquantum'),
-    'tagline' => 'Tecnología y accesorios para tu escritorio',
+    'tagline' => 'Salsas picantes artesanas de todo el mundo',
 
     // Los precios del catálogo incluyen IVA.
     'vat_rate' => 0.21,
