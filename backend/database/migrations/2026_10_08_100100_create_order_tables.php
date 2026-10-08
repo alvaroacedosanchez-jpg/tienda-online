@@ -10,6 +10,7 @@ return new class extends Migration
     {
         Schema::create('customers', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('user_id')->unique()->constrained()->restrictOnDelete();
             $table->string('name');
             $table->string('email')->index();
             $table->string('phone')->nullable();
@@ -23,7 +24,7 @@ return new class extends Migration
         Schema::create('orders', function (Blueprint $table) {
             $table->id();
             $table->string('reference')->unique();
-            $table->foreignId('customer_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('customer_id')->constrained()->restrictOnDelete();
             $table->string('status')->index();
             $table->decimal('subtotal', 10, 2);
             $table->decimal('discount', 10, 2)->default(0);
@@ -36,7 +37,7 @@ return new class extends Migration
 
         Schema::create('order_items', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('order_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('order_id')->constrained()->restrictOnDelete();
             $table->foreignId('product_id')->constrained();
             $table->string('product_name'); // copia histórica
             $table->decimal('unit_price', 10, 2); // copia histórica
@@ -47,7 +48,7 @@ return new class extends Migration
 
         Schema::create('payments', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('order_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('order_id')->constrained()->restrictOnDelete();
             $table->string('method'); // card | transfer (simulados)
             $table->string('status'); // approved | declined
             $table->decimal('amount', 10, 2);

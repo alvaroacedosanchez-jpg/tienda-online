@@ -22,13 +22,19 @@ class DatabaseSeeder extends Seeder
             ['name' => 'Administrador de prueba', 'password' => 'admin1234', 'is_admin' => true],
         );
 
-        // Clientes de prueba
+        // Clientes de prueba: cada uno con su usuario para iniciar sesión
         foreach ([
             ['Laura Prueba', 'laura@example.com', 'Calle Ficticia 1', 'Madrid', '28001'],
             ['Carlos Demo', 'carlos@example.com', 'Avenida de Prueba 22', 'Sevilla', '41001'],
             ['Marta Test', 'marta@example.com', 'Plaza Inventada 5', 'Valencia', '46001'],
         ] as [$name, $email, $address, $city, $zip]) {
+            $user = User::updateOrCreate(
+                ['email' => $email],
+                ['name' => $name, 'password' => 'cliente1234'],
+            );
+
             Customer::firstOrCreate(['email' => $email], [
+                'user_id' => $user->id,
                 'name' => $name, 'address' => $address, 'city' => $city, 'postal_code' => $zip,
                 'phone' => '600000000',
             ]);
