@@ -10,7 +10,9 @@ Genera pedidos y **eventos de negocio** que otro sistema podrá consumir en la T
 
 - Portada, catálogo por categorías y ficha de producto (9 productos, 4 categorías).
 - Carrito en sesión, código de descuento, envío (gratis desde 60 €) e IVA (21 % incluido).
-- Checkout con validación, **pago simulado** (tarjeta/transferencia) y pedido con referencia única (`PQ-YYYYMMDD-XXXXXX`).
+- Cuentas de cliente: registro, inicio y cierre de sesión. Para comprar hay que tener cuenta.
+- Checkout con validación, **pago simulado** (tarjeta/transferencia) y pedido con referencia única (`PQ-YYYYMMDD-XXXXXX`). Pedido, líneas, stock, ficha de cliente y eventos se guardan en una única transacción: si un paso falla, no se guarda nada.
+- Cada pedido guarda su propia dirección de envío (copia histórica) y solo lo puede ver y pagar su dueño.
 - Estados de pedido: `creado → pagado_simulado → pendiente_preparacion → enviado`, además de `cancelado` e `incidencia`.
 - Back-office (`/admin/login`): pedidos con cambio de estado, eventos (filtro + exportación JSON/CSV) y solicitudes de soporte.
 - Formulario de soporte/incidencias (`/soporte`).
@@ -66,6 +68,7 @@ Notas:
 | Uso | Dato |
 |---|---|
 | Back-office | `admin@piquantum.test` / `admin1234` (cuenta de prueba, no real) |
+| Clientes | `laura@example.com`, `carlos@example.com`, `marta@example.com` / `cliente1234` (cuentas de prueba) |
 | Tarjeta aprobada | `4242 4242 4242 4242`, caducidad `12/30`, CVV `123` |
 | Tarjeta rechazada | `4000 0000 0000 0002` |
 | Códigos de descuento | `BIENVENIDA10` (−10 %), `ACADEMICO15` (−15 %) |
@@ -84,7 +87,9 @@ El número de tarjeta **no se guarda**: solo los 4 últimos dígitos.
 ## Limitaciones conocidas
 
 - Pagos, envíos e impuestos **simulados**; sin pasarela real ni facturación.
-- Carrito en sesión (se pierde al caducar la sesión); no hay registro de clientes.
+- Carrito en sesión (se pierde al caducar la sesión o al cerrar sesión).
+- Un usuario dado de baja (soft delete) conserva su correo ocupado y no puede volver a registrarse con él.
+- La dirección por defecto del cliente es la de su primera compra; no hay página para editarla.
 - Una sola cuenta de back-office; sin roles ni auditoría de cambios de estado más allá del evento.
 - Sin pruebas de carga ni gestión de concurrencia avanzada (solo bloqueo de stock en el pedido).
 - Sin imágenes reales de producto (se usan emojis).

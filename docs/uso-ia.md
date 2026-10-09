@@ -48,11 +48,11 @@ Plantilla para cada entrada:
 - **Partes asistidas:** análisis de solo lectura de todo `backend/`.
 - **Errores detectados en el código generado por IA:**
   1. `AppServiceProvider` usaba la vista `pagination::default`, que no existe en Laravel 13. Provocaba un error 500 en el back-office. **Corregido por Antonio** (commit `4cf991c`, `Paginator::useBootstrapFive()`).
-  2. `tests/Feature/ExampleTest.php` falla porque `RefreshDatabase` está comentado. _(Pendiente)_
+  2. `tests/Feature/ExampleTest.php` falla porque `RefreshDatabase` está comentado. **Resuelto** en el paso 5 de cuentas de usuario.
   3. La tabla de transiciones de estado (`Order::TRANSITIONS`) no permite `creado → pagado_simulado`, pero `PaymentSimulator` hace esa transición, y `OrderService::changeStatus` no valida transiciones. _(Pendiente)_
-  4. Los totales del pedido se calculan con precios leídos antes del bloqueo de stock, y el carrito se vacía fuera de la transacción. _(Pendiente)_
-  5. Privacidad: cualquiera con la referencia `PQ-...` puede ver los datos del cliente y pagar el pedido. _(Pendiente)_
-  6. `Customer::create` crea un cliente nuevo en cada pedido, aunque el email se repita. _(Pendiente)_
+  4. Los totales del pedido se calculan con precios leídos antes del bloqueo de stock, y el carrito se vacía fuera de la transacción. **Resuelto** en el paso 5: los totales se recalculan con los precios bloqueados. Vaciar el carrito fuera de la transacción es correcto, porque es sesión y no base de datos; se hace solo si la transacción confirma.
+  5. Privacidad: cualquiera con la referencia `PQ-...` puede ver los datos del cliente y pagar el pedido. **Resuelto** en el paso 5: el checkout exige sesión y solo el dueño ve y paga su pedido (404 para el resto).
+  6. `Customer::create` crea un cliente nuevo en cada pedido, aunque el email se repita. **Resuelto** en el paso 5 de cuentas de usuario.
 - **Cambios del grupo:** fusión del arreglo de paginación en `main` (merge `2ffb930`).
 - **Validación:** `php artisan test` pasa de 8/10 a 9/10 tras el arreglo.
 
@@ -106,3 +106,27 @@ Plantilla para cada entrada:
 - **Errores detectados en la IA:** ninguno.
 - **Cambios del grupo:** —
 - **Validación:** peticiones HTTP reales contra un servidor de pruebas: menú de visitante; menú de Laura conectada; `/login` y `/registro` redirigen a la portada con sesión iniciada; "Salir" vuelve al menú de visitante; el admin ve además "Back-office"; logout sin sesión redirige a `/login`. `php artisan test` sigue en 5/10 (fallos conocidos del checkout, paso 5).
+
+### 2026-10-09 · Abel · Checkout con usuario, transaccional (paso 5)
+- **Tarea:** volver a hacer funcionar la compra ahora que todo cliente es un usuario, y hacer robusto el proceso Order-to-Cash.
+- **Instrucciones y decisiones de Abel (no de la IA):**
+  - Opción A: cada pedido guarda su propia dirección de envío; el cliente puede usar una dirección distinta en cada pedido.
+  - La ficha de cliente se crea en la primera compra y no se actualiza después (sirve para prerrellenar el formulario).
+  - El proceso debe ser transaccional: si un paso falla, se revierte todo.
+  - Alcance añadido: pago transaccional (sin pagos dobles), pedidos privados y arreglar `ExampleTest`.
+- **Partes asistidas:** la IA escribió entero este paso bajo esas instrucciones (plan aprobado por Abel antes de programar):
+  - `routes/web.php`: checkout, pago y pedido con middleware `auth`; `redirect()->intended()` en login y registro para volver al checkout.
+  - Migración `create_order_tables`: columnas `shipping_*` en `orders`; vistas de pedido (cliente y admin) leen esas columnas.
+  - `OrderService::createFromCart(User, array)`: ficha de cliente (`firstOrCreate`), bloqueo de productos ordenado por id, recálculo con precios bloqueados (`CartService::summaryFor`), pedido, líneas, stock y evento `order.created` en una sola `DB::transaction`; el carrito se vacía solo tras confirmar. `changeStatus` también registra su evento dentro de la transacción.
+  - Nueva `App\Exceptions\CheckoutException` para errores de negocio; los controladores ya no capturan `RuntimeException` (que incluía errores de base de datos).
+  - `PaymentSimulator::pay`: transacción con `lockForUpdate` sobre el pedido y relectura del estado.
+  - `Order::isOwnedBy()` y 404 para pedidos ajenos en `OrderController` y `CheckoutController`.
+  - Vista del checkout sin campo de correo (se usa el de la cuenta) y prerrellenada desde la ficha del cliente.
+  - Tests: login en los tests de compra y 7 tests nuevos (invitado redirigido y vuelta tras el login, dirección histórica, primera compra crea la ficha, rollback por falta de stock, rollback por fallo técnico en el último paso, privacidad y pago doble). `ExampleTest` con `RefreshDatabase`.
+  - README: cuentas de cliente de prueba, transaccionalidad y limitaciones.
+- **Errores detectados en la IA:** en la primera prueba manual, el script de comprobación tomaba el token CSRF de una página sin formulario (error 419). Era un fallo del script de prueba, no de la aplicación; se corrigió el script.
+- **Cambios del grupo:** decisiones de diseño y alcance indicadas arriba.
+- **Validación:**
+  - `php artisan test`: **17/17** (antes 5/10).
+  - Recorrido HTTP real: invitado con carrito → `/checkout` redirige a login → tras el login vuelve al checkout prerrellenado → pedido con otra dirección (Valencia) → pago aprobado → pedido "Pendiente de preparación" con la dirección de Valencia, mientras la ficha del cliente conserva Madrid → carrito vacío → otro cliente recibe 404 al abrir la URL del pedido.
+  - En base de datos: eventos `cart.item_added`, `checkout.started`, `order.created`, `payment.simulated` y `order.status_changed` registrados.
