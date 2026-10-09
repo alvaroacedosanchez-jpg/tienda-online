@@ -1,9 +1,11 @@
 <?php
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Str;
 
 class Product extends Model
 {
@@ -39,5 +41,17 @@ class Product extends Model
     public function hasVariants(): bool
     {
         return $this->variants()->exists();
+    }
+
+    /** Ruta de la ilustración generada para este producto (relativa a public/). */
+    public function defaultImagePath(): string
+    {
+        return 'images/products/'.Str::lower($this->sku).'.svg';
+    }
+
+    /** URL pública de la imagen, o null si no tiene (las vistas muestran entonces el emoji). */
+    public function imageUrl(): ?string
+    {
+        return $this->image ? asset($this->image) : null;
     }
 }
