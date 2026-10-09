@@ -17,10 +17,10 @@
     </div>
     <div class="field">
         <label for="password">Contraseña</label>
-    </div>
         <input type="password" id="password" name="password">
-    <div class="field">
         @error('password')<p class="error">{{ $message }}</p>@enderror
+    </div>
+    <div class="field">
         <label for="password_confirmation">Repita contraseña</label>
         <input type="password" id="password_confirmation" name="password_confirmation">
     </div>
