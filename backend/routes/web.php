@@ -7,6 +7,7 @@ use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ShopController;
 use App\Http\Controllers\SupportController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Admin\StockController as AdminStockController;
 
 // Tienda
 Route::get('/', [ShopController::class, 'home'])->name('home');
@@ -41,6 +42,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/pedidos', [Admin\OrderController::class, 'index'])->name('orders.index');
         Route::get('/pedidos/{order}', [Admin\OrderController::class, 'show'])->name('orders.show');
         Route::patch('/pedidos/{order}/estado', [Admin\OrderController::class, 'updateStatus'])->name('orders.status');
+        Route::get('/stock', [AdminStockController::class, 'index'])->name('stock.index');
         Route::get('/eventos', [Admin\EventController::class, 'index'])->name('events.index');
         Route::get('/eventos.json', [Admin\EventController::class, 'json'])->name('events.json');
         Route::get('/eventos.csv', [Admin\EventController::class, 'csv'])->name('events.csv');
