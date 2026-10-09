@@ -196,3 +196,16 @@ Plantilla para cada entrada:
   - `php artisan test`: **36/36** (30 anteriores + 6 nuevos).
   - Capturas reales con Chrome en modo headless del catálogo y de la ficha.
   - En Chrome, al elegir 200 ml la imagen pasa a `sal-002-200-ml.svg` y el precio a 9,90 €; al elegir 100 ml, a `sal-002-100-ml.svg` y 6,50 €.
+
+### 2026-10-10 · Abel · El administrador no compra ni usa el área de cliente (rama `fix/admin-sin-area-cliente`)
+- **Tarea:** la cuenta de administrador no debe tener el menú de usuario, ni hacer pedidos, ni cambiar su dirección.
+- **Decisión de Abel (no de la IA):** el administrador solo gestiona desde el back-office.
+- **Partes asistidas:** la IA lo escribió a petición de Abel:
+  - nuevo middleware `EnsureCustomer` (alias `customer`), aplicado al carrito, al checkout, al pago, a los pedidos y a "Mi cuenta". Deja pasar a invitados y clientes; el admin va al back-office con un mensaje;
+  - menú: el admin ve "Back-office" y "Salir", sin "Carrito" ni "Mi cuenta";
+  - ficha de producto: el admin no ve "Añadir al carrito", sino un aviso;
+  - login de la tienda: el admin va siempre al back-office, aunque viniera del checkout (se descarta la página pendiente);
+  - 5 tests en `tests/Feature/AdminRestrictionsTest.php`; README (usuario de prueba del back-office).
+- **Errores detectados en la IA:** ninguno. Pint reordenó los `use` de `bootstrap/app.php`.
+- **Cambios del grupo:** —
+- **Validación:** `php artisan test` **41/41** (36 anteriores + 5 nuevos). Se comprueba que el admin no puede añadir al carrito, entrar en el carrito, el checkout o "Mi cuenta", ni cambiar la dirección; que no se le crea ficha de cliente ni pedidos; y que los invitados y clientes siguen igual.
