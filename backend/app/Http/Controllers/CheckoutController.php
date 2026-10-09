@@ -2,17 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\CheckoutException;
 use App\Models\Order;
 use App\Services\CartService;
 use App\Services\EventLogger;
 use App\Services\OrderService;
 use App\Services\PaymentSimulator;
 use Illuminate\Http\Request;
-use RuntimeException;
 
 class CheckoutController extends Controller
 {
-    public function show(CartService $cart, EventLogger $events)
+    public function show(Request $request, CartService $cart, EventLogger $events)
     {
         if ($cart->isEmpty()) {
             return redirect()->route('catalog')->with('status', 'Tu carrito está vacío.');
@@ -24,14 +24,20 @@ class CheckoutController extends Controller
             'total' => $summary['total'],
         ]);
 
-        return view('checkout.show', ['items' => $cart->items(), 'summary' => $summary]);
+        return view('checkout.show', [
+            'items' => $cart->items(),
+            'summary' => $summary,
+            'user' => $request->user(),
+            // Ficha de cliente (null hasta su primera compra): sirve para prerrellenar el formulario
+            'customer' => $request->user()->customer,
+        ]);
     }
 
-    public function store(Request $request, CartService $cart, OrderService $orders)
+    public function store(Request $request, OrderService $orders)
     {
+        // El correo no se pide: se usa el de la cuenta del usuario
         $data = $request->validate([
             'name' => ['required', 'string', 'max:100'],
-            'email' => ['required', 'email', 'max:150'],
             'phone' => ['nullable', 'regex:/^[0-9 +]{9,15}$/'],
             'address' => ['required', 'string', 'max:200'],
             'city' => ['required', 'string', 'max:100'],
@@ -44,17 +50,21 @@ class CheckoutController extends Controller
         ]);
         unset($data['accept_prototype']);
 
+        // Solo se capturan errores de negocio; un error técnico revierte la transacción y da un 500
         try {
-            $order = $orders->createFromCart($data);
-        } catch (RuntimeException $e) {
+            $order = $orders->createFromCart($request->user(), $data);
+        } catch (CheckoutException $e) {
             return redirect()->route('cart.show')->withErrors(['cart' => $e->getMessage()]);
         }
 
         return redirect()->route('orders.pay', $order);
     }
 
-    public function payForm(Order $order)
+    public function payForm(Request $request, Order $order)
     {
+        // 404 y no 403: no revelamos que existe un pedido con esa referencia
+        abort_unless($order->isOwnedBy($request->user()), 404);
+
         if ($order->status !== Order::CREATED) {
             return redirect()->route('orders.show', $order);
         }
@@ -64,6 +74,7 @@ class CheckoutController extends Controller
 
     public function pay(Request $request, Order $order, PaymentSimulator $simulator)
     {
+        abort_unless($order->isOwnedBy($request->user()), 404);
         abort_unless($order->status === Order::CREATED, 404);
 
         $data = $request->validate([
@@ -77,7 +88,12 @@ class CheckoutController extends Controller
         ]);
 
         // El número de tarjeta solo se usa en esta llamada; no se guarda (solo los 4 últimos dígitos).
-        $payment = $simulator->pay($order, $data['method'], $data['card_number'] ?? null);
+        try {
+            $payment = $simulator->pay($order, $data['method'], $data['card_number'] ?? null);
+        } catch (CheckoutException $e) {
+            // Otra petición ha pagado el pedido mientras tanto
+            return redirect()->route('orders.show', $order)->withErrors(['cart' => $e->getMessage()]);
+        }
 
         if ($payment->status === 'declined') {
             return redirect()->route('orders.pay', $order)

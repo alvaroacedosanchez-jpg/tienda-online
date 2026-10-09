@@ -18,10 +18,16 @@
             <a href="{{ route('catalog') }}">Catálogo</a>
             <a href="{{ route('support.create') }}">Soporte</a>
             <a href="{{ route('cart.show') }}">Carrito ({{ app(\App\Services\CartService::class)->count() }})</a>
+            @guest
+                <a href="{{ route('login') }}">Iniciar sesión</a>
+                <a href="{{ route('register.create') }}">Crear cuenta</a>
+            @endguest
             @auth
                 @if (auth()->user()->is_admin)
                     <a href="{{ route('admin.orders.index') }}">Back-office</a>
                 @endif
+                <span class="nav-user">Hola, {{ auth()->user()->name }}</span>
+                <form method="POST" action="{{ route('logout') }}" class="inline-form">@csrf<button class="btn btn-small btn-light" type="submit">Salir</button></form>
             @endauth
         </nav>
     </div>

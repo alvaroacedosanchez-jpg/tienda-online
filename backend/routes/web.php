@@ -3,7 +3,9 @@
 use App\Http\Controllers\Admin;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\CheckoutController;
+use App\Http\Controllers\LoginController;
 use App\Http\Controllers\OrderController;
+use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\ShopController;
 use App\Http\Controllers\SupportController;
 use Illuminate\Support\Facades\Route;
@@ -21,16 +23,28 @@ Route::patch('/carrito/{itemKey}', [CartController::class, 'update'])->name('car
 Route::delete('/carrito/{itemKey}', [CartController::class, 'remove'])->name('cart.remove');
 Route::post('/carrito/codigo', [CartController::class, 'applyCode'])->name('cart.code');
 
-// Checkout, pago simulado y pedido
-Route::get('/checkout', [CheckoutController::class, 'show'])->name('checkout.show');
-Route::post('/checkout', [CheckoutController::class, 'store'])->name('checkout.store');
-Route::get('/pedido/{order}/pagar', [CheckoutController::class, 'payForm'])->name('orders.pay');
-Route::post('/pedido/{order}/pagar', [CheckoutController::class, 'pay'])->name('orders.pay.store');
-Route::get('/pedido/{order}', [OrderController::class, 'show'])->name('orders.show');
+// Checkout, pago simulado y pedido: solo con sesión iniciada (todo cliente es un usuario)
+Route::middleware('auth')->group(function () {
+    Route::get('/checkout', [CheckoutController::class, 'show'])->name('checkout.show');
+    Route::post('/checkout', [CheckoutController::class, 'store'])->name('checkout.store');
+    Route::get('/pedido/{order}/pagar', [CheckoutController::class, 'payForm'])->name('orders.pay');
+    Route::post('/pedido/{order}/pagar', [CheckoutController::class, 'pay'])->name('orders.pay.store');
+    Route::get('/pedido/{order}', [OrderController::class, 'show'])->name('orders.show');
+});
 
 // Soporte
 Route::get('/soporte', [SupportController::class, 'create'])->name('support.create');
 Route::post('/soporte', [SupportController::class, 'store'])->name('support.store');
+
+// Cuentas de usuarios
+// Registro y login solo para visitantes sin sesión; logout solo para usuarios con sesión
+Route::middleware('guest')->group(function () {
+    Route::get('/registro', [RegisterController::class, 'create'])->name('register.create');
+    Route::post('/registro', [RegisterController::class, 'store'])->name('register.store');
+    Route::get('/login', [LoginController::class, 'create'])->name('login');
+    Route::post('/login', [LoginController::class, 'store'])->name('login.store');
+});
+Route::post('/logout', [LoginController::class, 'destroy'])->middleware('auth')->name('logout');
 
 // Back-office
 Route::prefix('admin')->name('admin.')->group(function () {

@@ -9,6 +9,9 @@ a{color:var(--brand)}
 .brand{font-weight:800;font-size:1.4rem;text-decoration:none;color:var(--brand-dark)}
 .site-header nav a{margin-left:16px;text-decoration:none;color:var(--fg);font-weight:500}
 .site-header nav a:hover{color:var(--brand)}
+.site-header nav{display:flex;align-items:center;flex-wrap:wrap;gap:8px 0}
+.site-header .nav-user{margin-left:16px;color:var(--muted)}
+.site-header nav .inline-form{display:inline-flex;margin-left:12px}
 main{padding-top:24px;padding-bottom:40px;min-height:60vh}
 .site-footer{border-top:1px solid var(--line);padding:20px 0;color:var(--muted);font-size:.85rem}
 h1{margin-top:0} h2{margin-top:32px}

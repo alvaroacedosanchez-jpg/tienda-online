@@ -146,7 +146,18 @@ class CartService
 
     public function summary(): array
     {
-        $subtotal = round($this->items()->sum('line_total'), 2);
+        return $this->summaryFor($this->items());
+    }
+
+    /**
+     * Calcula los importes de unas líneas concretas. El checkout lo usa con
+     * los precios releídos y bloqueados dentro de la transacción.
+     *
+     * @param  Collection<int, array{product: Product, quantity: int, line_total: float}>  $items
+     */
+    public function summaryFor(Collection $items): array
+    {
+        $subtotal = round($items->sum('line_total'), 2);
 
         $code = $this->code();
         $percent = $code ? (config('shop.discount_codes')[$code] ?? 0) : 0;

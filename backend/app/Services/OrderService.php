@@ -2,13 +2,14 @@
 
 namespace App\Services;
 
+use App\Exceptions\CheckoutException;
 use App\Models\Customer;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\ProductVariant;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use RuntimeException;
 
 class OrderService
 {
@@ -18,21 +19,80 @@ class OrderService
     ) {}
 
     /**
-     * Crea el pedido a partir del carrito. Descuenta stock dentro de una transacción.
+     * Crea el pedido del usuario a partir del carrito (Order-to-Cash).
      *
-     * @throws RuntimeException si el carrito está vacío o no hay stock suficiente
+     * Todo ocurre en una única transacción: ficha de cliente, pedido, líneas, stock
+     * y evento order.created. Si cualquier paso falla, no se guarda nada y el
+     * carrito se conserva para poder reintentar.
+     *
+     * @param  array{name: string, phone: ?string, address: string, city: string, postal_code: string}  $shipping
+     *
+     * @throws CheckoutException si el carrito está vacío, un producto ya no está disponible o no hay stock
      */
-    public function createFromCart(array $customerData): Order
+    public function createFromCart(User $user, array $shipping): Order
     {
-        $items = $this->cart->items();
-        if ($items->isEmpty()) {
-            throw new RuntimeException('El carrito está vacío.');
+        $cartItems = $this->cart->items();
+        if ($cartItems->isEmpty()) {
+            throw new CheckoutException('El carrito está vacío.');
         }
-        $summary = $this->cart->summary();
 
-        $order = DB::transaction(function () use ($customerData, $items, $summary) {
-            $customer = Customer::create($customerData);
+        $order = DB::transaction(function () use ($user, $shipping, $cartItems) {
+            // 1. Ficha de cliente: se crea en la primera compra y después se reutiliza tal cual
+            $customer = Customer::firstOrCreate(['user_id' => $user->id], [
+                'name' => $shipping['name'],
+                'email' => $user->email,
+                'phone' => $shipping['phone'] ?? null,
+                'address' => $shipping['address'],
+                'city' => $shipping['city'],
+                'postal_code' => $shipping['postal_code'],
+            ]);
 
+            // 2. Bloquear productos y variantes (en orden de id para evitar interbloqueos) y releer precio y stock
+            $products = Product::whereIn('id', $cartItems->pluck('product.id'))
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('id');
+            $variants = ProductVariant::whereIn('id', $cartItems->pluck('variant.id')->filter())
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('id');
+
+            // 3. Recalcular las líneas con los datos bloqueados, no con los leídos antes de la transacción.
+            //    Si la línea tiene variante (tamaño), el precio y el stock son los de la variante.
+            $items = $cartItems->map(function (array $item) use ($products, $variants) {
+                /** @var Product|null $product */
+                $product = $products->get($item['product']->id);
+                if (! $product || ! $product->active) {
+                    throw new CheckoutException("«{$item['product']->name}» ya no está disponible.");
+                }
+
+                $variant = null;
+                if (! empty($item['variant'])) {
+                    /** @var ProductVariant|null $variant */
+                    $variant = $variants->get($item['variant']->id);
+                    if (! $variant || (int) $variant->product_id !== (int) $product->id) {
+                        throw new CheckoutException("«{$product->name} ({$item['variant']->size})» ya no está disponible.");
+                    }
+                }
+
+                $stockSource = $variant ?? $product;
+                if ($stockSource->stock < $item['quantity']) {
+                    $label = $variant ? "{$product->name} ({$variant->size})" : $product->name;
+                    throw new CheckoutException("No hay stock suficiente de «{$label}».");
+                }
+
+                return [
+                    'product' => $product,
+                    'variant' => $variant,
+                    'quantity' => $item['quantity'],
+                    'line_total' => round($stockSource->price * $item['quantity'], 2),
+                ];
+            });
+            $summary = $this->cart->summaryFor($items);
+
+            // 4. Pedido con su propia copia de la dirección de envío
             $order = Order::create([
                 'reference' => $this->newReference(),
                 'customer_id' => $customer->id,
@@ -43,56 +103,44 @@ class OrderService
                 'shipping' => $summary['shipping'],
                 'tax' => $summary['tax'],
                 'total' => $summary['total'],
+                'shipping_name' => $shipping['name'],
+                'shipping_phone' => $shipping['phone'] ?? null,
+                'shipping_address' => $shipping['address'],
+                'shipping_city' => $shipping['city'],
+                'shipping_postal_code' => $shipping['postal_code'],
             ]);
 
+            // 5. Líneas (copia histórica de nombre y precio) y descuento de stock
             foreach ($items as $item) {
-                /** @var Product $product */
                 $product = $item['product'];
-                $variant = $item['variant'] ?? null;
+                $variant = $item['variant'];
 
-                if ($variant) {
-                    $variantModel = ProductVariant::lockForUpdate()->find($variant->id);
-                    if (!$variantModel || $variantModel->stock < $item['quantity']) {
-                        throw new RuntimeException("No hay stock suficiente de «{$product->name} ({$variant->size})».");
-                    }
-                    $variantModel->decrement('stock', $item['quantity']);
-
-                    $unitPrice = $variantModel->price;
-                    $variantId = $variantModel->id;
-                    $variantSize = $variantModel->size;
-                } else {
-                    $productModel = Product::lockForUpdate()->findOrFail($product->id);
-                    if ($productModel->stock < $item['quantity']) {
-                        throw new RuntimeException("No hay stock suficiente de «{$product->name}».");
-                    }
-                    $productModel->decrement('stock', $item['quantity']);
-
-                    $unitPrice = $productModel->price;
-                    $variantId = null;
-                    $variantSize = null;
-                }
+                // El stock se descuenta de la variante si la hay; si no, del producto
+                ($variant ?? $product)->decrement('stock', $item['quantity']);
 
                 $order->items()->create([
                     'product_id' => $product->id,
-                    'product_variant_id' => $variantId,
+                    'product_variant_id' => $variant?->id,
                     'product_name' => $product->name,
-                    'variant_size' => $variantSize,
-                    'unit_price' => $unitPrice,
+                    'variant_size' => $variant?->size,
+                    'unit_price' => ($variant ?? $product)->price,
                     'quantity' => $item['quantity'],
                     'line_total' => $item['line_total'],
                 ]);
             }
 
+            // 6. Evento dentro de la transacción: o se guarda todo o nada
+            $this->events->log(EventLogger::ORDER_CREATED, [
+                'reference' => $order->reference,
+                'total' => (float) $order->total,
+                'items' => $items->sum('quantity'),
+                'discount_code' => $order->discount_code,
+            ], $order->id);
+
             return $order;
         });
 
-        $this->events->log(EventLogger::ORDER_CREATED, [
-            'reference' => $order->reference,
-            'total' => (float) $order->total,
-            'items' => $items->sum('quantity'),
-            'discount_code' => $order->discount_code,
-        ], $order->id);
-
+        // El carrito vive en la sesión (no en la base de datos): se vacía solo si la transacción se ha confirmado
         $this->cart->clear();
 
         return $order;
@@ -106,7 +154,8 @@ class OrderService
             return;
         }
 
-        DB::transaction(function () use ($order, $newStatus) {
+        // Estado, stock y evento en la misma transacción
+        DB::transaction(function () use ($order, $old, $newStatus, $origin) {
             if ($newStatus === Order::CANCELLED) {
                 foreach ($order->items as $item) {
                     if ($item->product_variant_id) {
@@ -117,14 +166,14 @@ class OrderService
                 }
             }
             $order->update(['status' => $newStatus]);
-        });
 
-        $this->events->log(EventLogger::ORDER_STATUS_CHANGED, [
-            'reference' => $order->reference,
-            'from' => $old,
-            'to' => $newStatus,
-            'origin' => $origin,
-        ], $order->id);
+            $this->events->log(EventLogger::ORDER_STATUS_CHANGED, [
+                'reference' => $order->reference,
+                'from' => $old,
+                'to' => $newStatus,
+                'origin' => $origin,
+            ], $order->id);
+        });
     }
 
     private function newReference(): string

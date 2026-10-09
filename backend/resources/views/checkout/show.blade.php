@@ -8,10 +8,10 @@
     <form method="POST" action="{{ route('checkout.store') }}" class="card pad" novalidate>
         @csrf
         <h2>Datos de envío</h2>
+        <p class="small muted">Te enviaremos la confirmación a {{ $user->email }}. Esta dirección se guarda solo para este pedido.</p>
 
         @foreach ([
-            'name' => ['Nombre completo', 'text', 'Laura Prueba'],
-            'email' => ['Correo electrónico', 'email', 'laura@example.com'],
+            'name' => ['Nombre de quien recibe', 'text', 'Laura Prueba'],
             'phone' => ['Teléfono (opcional)', 'tel', '600000000'],
             'address' => ['Dirección', 'text', 'Calle Ficticia 1'],
             'city' => ['Ciudad', 'text', 'Madrid'],
@@ -19,7 +19,8 @@
         ] as $field => [$label, $type, $placeholder])
             <div class="field">
                 <label for="{{ $field }}">{{ $label }}</label>
-                <input type="{{ $type }}" id="{{ $field }}" name="{{ $field }}" value="{{ old($field) }}" placeholder="{{ $placeholder }}">
+                {{-- Valor: lo último escrito (si hubo error) → la ficha del cliente → el nombre de la cuenta --}}
+                <input type="{{ $type }}" id="{{ $field }}" name="{{ $field }}" value="{{ old($field, $customer?->$field ?? ($field === 'name' ? $user->name : '')) }}" placeholder="{{ $placeholder }}">
                 @error($field)<p class="error">{{ $message }}</p>@enderror
             </div>
         @endforeach
