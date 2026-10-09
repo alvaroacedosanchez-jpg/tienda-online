@@ -73,7 +73,7 @@ Notas:
 
 | Uso | Dato |
 |---|---|
-| Back-office | `admin@piquantum.test` / `admin1234` (cuenta de prueba, no real) |
+| Back-office | `admin@piquantum.test` / `admin1234` (cuenta de prueba, no real; solo gestiona: no puede comprar ni usar "Mi cuenta") |
 | Clientes | `laura@example.com`, `carlos@example.com`, `marta@example.com` / `cliente1234` (cuentas de prueba) |
 | Tarjeta aprobada | `4242 4242 4242 4242`, caducidad `12/30`, CVV `123` |
 | Tarjeta rechazada | `4000 0000 0000 0002` |

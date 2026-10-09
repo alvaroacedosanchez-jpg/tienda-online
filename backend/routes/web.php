@@ -18,15 +18,17 @@ Route::get('/', [ShopController::class, 'home'])->name('home');
 Route::get('/catalogo', [ShopController::class, 'catalog'])->name('catalog');
 Route::get('/producto/{product:slug}', [ShopController::class, 'show'])->name('product.show');
 
-// Carrito
-Route::get('/carrito', [CartController::class, 'show'])->name('cart.show');
-Route::post('/carrito/anadir/{product}', [CartController::class, 'add'])->name('cart.add');
-Route::patch('/carrito/{itemKey}', [CartController::class, 'update'])->name('cart.update');
-Route::delete('/carrito/{itemKey}', [CartController::class, 'remove'])->name('cart.remove');
-Route::post('/carrito/codigo', [CartController::class, 'applyCode'])->name('cart.code');
+// Carrito: invitados y clientes (el administrador no compra)
+Route::middleware('customer')->group(function () {
+    Route::get('/carrito', [CartController::class, 'show'])->name('cart.show');
+    Route::post('/carrito/anadir/{product}', [CartController::class, 'add'])->name('cart.add');
+    Route::patch('/carrito/{itemKey}', [CartController::class, 'update'])->name('cart.update');
+    Route::delete('/carrito/{itemKey}', [CartController::class, 'remove'])->name('cart.remove');
+    Route::post('/carrito/codigo', [CartController::class, 'applyCode'])->name('cart.code');
+});
 
-// Checkout, pago simulado y pedido: solo con sesión iniciada (todo cliente es un usuario)
-Route::middleware('auth')->group(function () {
+// Checkout, pago simulado, pedido y área de cliente: solo clientes con sesión iniciada
+Route::middleware(['auth', 'customer'])->group(function () {
     Route::get('/checkout', [CheckoutController::class, 'show'])->name('checkout.show');
     Route::post('/checkout', [CheckoutController::class, 'store'])->name('checkout.store');
     Route::get('/pedido/{order}/pagar', [CheckoutController::class, 'payForm'])->name('orders.pay');

@@ -17,16 +17,20 @@
         <nav aria-label="Principal">
             <a href="{{ route('catalog') }}">Catálogo</a>
             <a href="{{ route('support.create') }}">Soporte</a>
-            <a href="{{ route('cart.show') }}">Carrito ({{ app(\App\Services\CartService::class)->count() }})</a>
+            {{-- El administrador no compra: sin carrito ni "Mi cuenta", solo el back-office --}}
+            @if (auth()->user()?->is_admin)
+                <a href="{{ route('admin.orders.index') }}">Back-office</a>
+            @else
+                <a href="{{ route('cart.show') }}">Carrito ({{ app(\App\Services\CartService::class)->count() }})</a>
+            @endif
             @guest
                 <a href="{{ route('login') }}">Iniciar sesión</a>
                 <a href="{{ route('register.create') }}">Crear cuenta</a>
             @endguest
             @auth
-                @if (auth()->user()->is_admin)
-                    <a href="{{ route('admin.orders.index') }}">Back-office</a>
-                @endif
-                <a href="{{ route('account.show') }}" @if (request()->routeIs('account.*')) aria-current="page" @endif>Mi cuenta ({{ auth()->user()->name }})</a>
+                @unless (auth()->user()->is_admin)
+                    <a href="{{ route('account.show') }}" @if (request()->routeIs('account.*')) aria-current="page" @endif>Mi cuenta ({{ auth()->user()->name }})</a>
+                @endunless
                 <form method="POST" action="{{ route('logout') }}" class="inline-form">@csrf<button class="btn btn-small btn-light" type="submit">Salir</button></form>
             @endauth
         </nav>
