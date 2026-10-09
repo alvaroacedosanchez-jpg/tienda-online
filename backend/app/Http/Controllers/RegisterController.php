@@ -39,8 +39,8 @@ class RegisterController extends Controller
         Auth::login($user);
         $request->session()->regenerate();
         
-        // Redirigimos
-        return redirect()->route('home')->with('status', 'Bienvenido/a, '. $user->name .'. Tu cuenta ha sido creada');
+        // Redirigimos a la página que pedía (p. ej. el checkout) o, si no había ninguna, a la portada
+        return redirect()->intended(route('home'))->with('status', 'Bienvenido/a, '. $user->name .'. Tu cuenta ha sido creada');
 
     }
 }

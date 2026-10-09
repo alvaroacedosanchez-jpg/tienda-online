@@ -28,7 +28,7 @@ class LoginController extends Controller
         if (Auth::attempt($data)) {
             $request->session()->regenerate();
 
-            return redirect()->route('home')->with('status', 'Bienvenido/a, '.Auth::user()->name.'.');
+            return redirect()->intended(route('home'))->with('status', 'Bienvenido/a, '.Auth::user()->name.'.');
         }
 
         // Mensaje genérico para no revelar si el correo existe

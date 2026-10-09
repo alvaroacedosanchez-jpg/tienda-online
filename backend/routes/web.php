@@ -22,12 +22,14 @@ Route::patch('/carrito/{product}', [CartController::class, 'update'])->name('car
 Route::delete('/carrito/{product}', [CartController::class, 'remove'])->name('cart.remove');
 Route::post('/carrito/codigo', [CartController::class, 'applyCode'])->name('cart.code');
 
-// Checkout, pago simulado y pedido
-Route::get('/checkout', [CheckoutController::class, 'show'])->name('checkout.show');
-Route::post('/checkout', [CheckoutController::class, 'store'])->name('checkout.store');
-Route::get('/pedido/{order}/pagar', [CheckoutController::class, 'payForm'])->name('orders.pay');
-Route::post('/pedido/{order}/pagar', [CheckoutController::class, 'pay'])->name('orders.pay.store');
-Route::get('/pedido/{order}', [OrderController::class, 'show'])->name('orders.show');
+// Checkout, pago simulado y pedido: solo con sesión iniciada (todo cliente es un usuario)
+Route::middleware('auth')->group(function () {
+    Route::get('/checkout', [CheckoutController::class, 'show'])->name('checkout.show');
+    Route::post('/checkout', [CheckoutController::class, 'store'])->name('checkout.store');
+    Route::get('/pedido/{order}/pagar', [CheckoutController::class, 'payForm'])->name('orders.pay');
+    Route::post('/pedido/{order}/pagar', [CheckoutController::class, 'pay'])->name('orders.pay.store');
+    Route::get('/pedido/{order}', [OrderController::class, 'show'])->name('orders.show');
+});
 
 // Soporte
 Route::get('/soporte', [SupportController::class, 'create'])->name('support.create');
