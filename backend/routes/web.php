@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\OrderController;
+use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\ShopController;
 use App\Http\Controllers\SupportController;
 use Illuminate\Support\Facades\Route;
@@ -30,6 +31,10 @@ Route::get('/pedido/{order}', [OrderController::class, 'show'])->name('orders.sh
 // Soporte
 Route::get('/soporte', [SupportController::class, 'create'])->name('support.create');
 Route::post('/soporte', [SupportController::class, 'store'])->name('support.store');
+
+// Cuentas de usuarios
+Route::get('/registro', [RegisterController::class, 'create'])->name('register.create');
+Route::post('/registro', [RegisterController::class, 'store'])->name('register.store');
 
 // Back-office
 Route::prefix('admin')->name('admin.')->group(function () {
