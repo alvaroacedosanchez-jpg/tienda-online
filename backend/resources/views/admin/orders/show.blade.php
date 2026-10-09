@@ -23,8 +23,11 @@
 <div class="two-col">
     <div>
         <h2>Cliente (datos de prueba)</h2>
-        <p>{{ $order->customer->name }} · {{ $order->customer->email }}<br>
-        {{ $order->customer->address }}, {{ $order->customer->postal_code }} {{ $order->customer->city }}</p>
+        <p>{{ $order->customer->name }} · {{ $order->customer->email }}</p>
+
+        <h2>Envío</h2>
+        <p>{{ $order->shipping_name }}@if ($order->shipping_phone) · {{ $order->shipping_phone }}@endif<br>
+        {{ $order->shipping_address }}, {{ $order->shipping_postal_code }} {{ $order->shipping_city }}</p>
 
         <h2>Líneas</h2>
         <table class="table">

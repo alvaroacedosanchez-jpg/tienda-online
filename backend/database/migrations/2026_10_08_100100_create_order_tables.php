@@ -32,6 +32,13 @@ return new class extends Migration
             $table->decimal('shipping', 10, 2)->default(0);
             $table->decimal('tax', 10, 2)->default(0); // IVA contenido en el total
             $table->decimal('total', 10, 2);
+            // Dirección de envío de ESTE pedido (copia histórica: no cambia aunque el cliente cambie de dirección)
+            $table->string('shipping_name');
+            $table->string('shipping_phone')->nullable();
+            $table->string('shipping_address');
+            $table->string('shipping_city');
+            $table->string('shipping_postal_code', 10);
+            $table->string('shipping_country')->default('España');
             $table->timestamps();
         });
 

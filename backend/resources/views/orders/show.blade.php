@@ -15,7 +15,7 @@
             </tbody>
         </table>
         <h2>Envío a</h2>
-        <p>{{ $order->customer->name }}<br>{{ $order->customer->address }}<br>{{ $order->customer->postal_code }} {{ $order->customer->city }}</p>
+        <p>{{ $order->shipping_name }}<br>{{ $order->shipping_address }}<br>{{ $order->shipping_postal_code }} {{ $order->shipping_city }}</p>
     </div>
     <div>
         @include('partials.summary', ['summary' => [

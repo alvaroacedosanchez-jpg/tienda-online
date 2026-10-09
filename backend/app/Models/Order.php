@@ -67,6 +67,12 @@ class Order extends Model
         return $this->hasMany(Payment::class);
     }
 
+    /** El pedido pertenece a este usuario (a través de su ficha de cliente). */
+    public function isOwnedBy(User $user): bool
+    {
+        return $this->customer->user_id === $user->id;
+    }
+
     public function statusLabel(): string
     {
         return self::STATUS_LABELS[$this->status] ?? $this->status;
