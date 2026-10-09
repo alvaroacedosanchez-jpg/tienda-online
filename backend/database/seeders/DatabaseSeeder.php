@@ -54,7 +54,7 @@ class DatabaseSeeder extends Seeder
             ['extremas', 'SAL-007', 'Salsa Ghost Pepper Bhut', 'Picor que crece poco a poco y no se va.', 'Salsa de Bhut Jolokia (chile fantasma) con tomate, cebolla roja y comino. Picor progresivo y muy duradero; dosificar gota a gota.', 11.90, 25, '👻', ['Picor' => '800.000 SHU', 'Chile' => 'Bhut Jolokia', 'Formato' => '100 ml', 'Origen' => 'India']],
             ['extremas', 'SAL-001', 'Salsa Carolina Reaper Inferno', 'Para valientes: más de 1.000.000 SHU.', 'Salsa elaborada con pimiento Carolina Reaper, vinagre de manzana y ajo asado. Unas gotas bastan para transformar cualquier plato.', 12.90, 30, '💀', ['Picor' => '1.000.000+ SHU', 'Chile' => 'Carolina Reaper', 'Formato' => '100 ml', 'Origen' => 'EE. UU.']],
             ['packs', 'SAL-008', 'Pack Iniciación al Picante', 'Tres salsas para subir de nivel poco a poco.', 'Incluye Verde Jalapeño & Lima, Chipotle Ahumado y Habanero Mango en formato de 100 ml. El regalo perfecto para empezar.', 19.90, 20, '🎁', ['Contenido' => '3 × 100 ml', 'Picor' => 'De 3.500 a 150.000 SHU', 'Formato' => 'Caja regalo', 'Origen' => 'Varios']],
-            ['packs', 'SAL-009', 'Pack Desafío Extremo', 'Las dos salsas más potentes de la tienda.', 'Ghost Pepper Bhut y Carolina Reaper Inferno en una caja negra con guantes de nitrilo incluidos. Solo para expertos.', 22.90, 15, '☠️', ['Contenido' => '2 × 100 ml', 'Picor' => 'Hasta 1.000.000+ SHU', 'Formato' => 'Caja regalo', 'Origen' => 'Varios']],
+            ['packs', 'SAL-009', 'Pack Desafío Extrem', 'Las dos salsas más potentes de la tienda.', 'Ghost Pepper Bhut y Carolina Reaper Inferno en una caja negra con guantes de nitrilo incluidos. Solo para expertos.', 22.90, 15, '☠️', ['Contenido' => '2 × 100 ml', 'Picor' => 'Hasta 1.000.000+ SHU', 'Formato' => 'Caja regalo', 'Origen' => 'Varios']],
         ];
 
         foreach ($products as [$catSlug, $sku, $name, $short, $desc, $price, $stock, $emoji, $specs]) {
@@ -70,6 +70,29 @@ class DatabaseSeeder extends Seeder
                 'specs' => $specs,
                 'active' => true,
             ]);
+            
+            // 2. Asignar variantes explícitamente a los 2 SKUs
+            $chipotle = Product::where('sku', 'SAL-002')->first();
+            if ($chipotle) {
+                $chipotle->variants()->delete();
+                $chipotle->variants()->createMany([
+                    ['size' => '50 ml', 'price' => 4.50, 'stock' => 30],
+                    ['size' => '100 ml', 'price' => 6.50, 'stock' => 20],
+                    ['size' => '200 ml', 'price' => 9.90, 'stock' => 10],
+                ]);
+            }
+
+            $reaper = Product::where('sku', 'SAL-001')->first();
+            if ($reaper) {
+                $reaper->variants()->delete();
+                $reaper->variants()->createMany([
+                    ['size' => '50 ml', 'price' => 8.90, 'stock' => 15],
+                    ['size' => '100 ml', 'price' => 12.90, 'stock' => 10],
+                    ['size' => '200 ml', 'price' => 18.50, 'stock' => 5],
+                ]);
+            }
+
         }
+
     }
 }

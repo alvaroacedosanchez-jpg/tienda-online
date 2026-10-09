@@ -7,20 +7,15 @@ use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
-    /**
-     * Register any application services.
-     */
     public function register(): void
     {
         //
     }
 
-    /**
-     * Bootstrap any application services.
-     */
     public function boot(): void
     {
-        // Paginación con marcado simple (sin Tailwind); estilos en public/css/app.css
-        Paginator::defaultView('pagination::default');
+        // Elige según el diseño de tu CSS:
+        Paginator::useBootstrapFive(); 
+        // o bien: Paginator::useTailwind();
     }
 }

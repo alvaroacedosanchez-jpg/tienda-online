@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Customer;
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\ProductVariant;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -46,16 +47,37 @@ class OrderService
 
             foreach ($items as $item) {
                 /** @var Product $product */
-                $product = Product::lockForUpdate()->findOrFail($item['product']->id);
-                if ($product->stock < $item['quantity']) {
-                    throw new RuntimeException("No hay stock suficiente de «{$product->name}».");
+                $product = $item['product'];
+                $variant = $item['variant'] ?? null;
+
+                if ($variant) {
+                    $variantModel = ProductVariant::lockForUpdate()->find($variant->id);
+                    if (!$variantModel || $variantModel->stock < $item['quantity']) {
+                        throw new RuntimeException("No hay stock suficiente de «{$product->name} ({$variant->size})».");
+                    }
+                    $variantModel->decrement('stock', $item['quantity']);
+
+                    $unitPrice = $variantModel->price;
+                    $variantId = $variantModel->id;
+                    $variantSize = $variantModel->size;
+                } else {
+                    $productModel = Product::lockForUpdate()->findOrFail($product->id);
+                    if ($productModel->stock < $item['quantity']) {
+                        throw new RuntimeException("No hay stock suficiente de «{$product->name}».");
+                    }
+                    $productModel->decrement('stock', $item['quantity']);
+
+                    $unitPrice = $productModel->price;
+                    $variantId = null;
+                    $variantSize = null;
                 }
-                $product->decrement('stock', $item['quantity']);
 
                 $order->items()->create([
                     'product_id' => $product->id,
+                    'product_variant_id' => $variantId,
                     'product_name' => $product->name,
-                    'unit_price' => $product->price,
+                    'variant_size' => $variantSize,
+                    'unit_price' => $unitPrice,
                     'quantity' => $item['quantity'],
                     'line_total' => $item['line_total'],
                 ]);
@@ -87,7 +109,11 @@ class OrderService
         DB::transaction(function () use ($order, $newStatus) {
             if ($newStatus === Order::CANCELLED) {
                 foreach ($order->items as $item) {
-                    Product::whereKey($item->product_id)->increment('stock', $item->quantity);
+                    if ($item->product_variant_id) {
+                        ProductVariant::whereKey($item->product_variant_id)->increment('stock', $item->quantity);
+                    } else {
+                        Product::whereKey($item->product_id)->increment('stock', $item->quantity);
+                    }
                 }
             }
             $order->update(['status' => $newStatus]);

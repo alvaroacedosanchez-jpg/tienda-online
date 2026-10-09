@@ -16,8 +16,8 @@ Route::get('/producto/{product:slug}', [ShopController::class, 'show'])->name('p
 // Carrito
 Route::get('/carrito', [CartController::class, 'show'])->name('cart.show');
 Route::post('/carrito/anadir/{product}', [CartController::class, 'add'])->name('cart.add');
-Route::patch('/carrito/{product}', [CartController::class, 'update'])->name('cart.update');
-Route::delete('/carrito/{product}', [CartController::class, 'remove'])->name('cart.remove');
+Route::patch('/carrito/{itemKey}', [CartController::class, 'update'])->name('cart.update');
+Route::delete('/carrito/{itemKey}', [CartController::class, 'remove'])->name('cart.remove');
 Route::post('/carrito/codigo', [CartController::class, 'applyCode'])->name('cart.code');
 
 // Checkout, pago simulado y pedido

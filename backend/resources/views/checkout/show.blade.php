@@ -40,7 +40,13 @@
             <h2>Tu pedido</h2>
             <ul class="plain">
                 @foreach ($items as $item)
-                    <li>{{ $item['quantity'] }} × {{ $item['product']->name }} <span class="right">{{ number_format($item['line_total'], 2, ',', '.') }} €</span></li>
+                    <li>
+                        {{ $item['quantity'] }} × {{ $item['product']->name }}
+                        @if (!empty($item['variant']))
+                            <small class="muted">({{ $item['variant']->size }})</small>
+                        @endif
+                        <span class="right">{{ number_format($item['line_total'], 2, ',', '.') }} €</span>
+                    </li>
                 @endforeach
             </ul>
         </div>
