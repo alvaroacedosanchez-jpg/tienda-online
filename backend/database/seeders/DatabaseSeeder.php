@@ -17,10 +17,12 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         // Usuario de back-office de PRUEBA (documentado en el README)
-        User::updateOrCreate(
+        $admin = User::updateOrCreate(
             ['email' => 'admin@piquantum.test'],
-            ['name' => 'Administrador de prueba', 'password' => 'admin1234', 'is_admin' => true],
+            ['name' => 'Administrador de prueba', 'password' => 'admin1234'],
         );
+        $admin->is_admin = true;
+        $admin->save(); 
 
         // Clientes de prueba: cada uno con su usuario para iniciar sesión
         foreach ([
