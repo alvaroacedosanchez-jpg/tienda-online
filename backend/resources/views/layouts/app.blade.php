@@ -26,7 +26,7 @@
                 @if (auth()->user()->is_admin)
                     <a href="{{ route('admin.orders.index') }}">Back-office</a>
                 @endif
-                <span class="nav-user">Hola, {{ auth()->user()->name }}</span>
+                <a href="{{ route('account.show') }}" @if (request()->routeIs('account.*')) aria-current="page" @endif>Mi cuenta ({{ auth()->user()->name }})</a>
                 <form method="POST" action="{{ route('logout') }}" class="inline-form">@csrf<button class="btn btn-small btn-light" type="submit">Salir</button></form>
             @endauth
         </nav>

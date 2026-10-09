@@ -1,15 +1,17 @@
 <?php
 
+use App\Http\Controllers\AccountController;
 use App\Http\Controllers\Admin;
+use App\Http\Controllers\Admin\StockController as AdminStockController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\CheckoutController;
+use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\LoginController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\ShopController;
 use App\Http\Controllers\SupportController;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Admin\StockController as AdminStockController;
 
 // Tienda
 Route::get('/', [ShopController::class, 'home'])->name('home');
@@ -30,6 +32,17 @@ Route::middleware('auth')->group(function () {
     Route::get('/pedido/{order}/pagar', [CheckoutController::class, 'payForm'])->name('orders.pay');
     Route::post('/pedido/{order}/pagar', [CheckoutController::class, 'pay'])->name('orders.pay.store');
     Route::get('/pedido/{order}', [OrderController::class, 'show'])->name('orders.show');
+
+    // Área de cliente: pedidos, facturas y datos de la cuenta
+    Route::prefix('mi-cuenta')->name('account.')->group(function () {
+        Route::get('/', [AccountController::class, 'show'])->name('show');
+        Route::get('/pedidos', [AccountController::class, 'orders'])->name('orders');
+        Route::get('/facturas', [InvoiceController::class, 'index'])->name('invoices');
+        Route::get('/facturas/{invoice}/pdf', [InvoiceController::class, 'download'])->name('invoices.pdf');
+        Route::put('/direccion', [AccountController::class, 'updateAddress'])->name('address.update');
+        Route::put('/contrasena', [AccountController::class, 'updatePassword'])->name('password.update');
+        Route::delete('/', [AccountController::class, 'destroy'])->name('destroy');
+    });
 });
 
 // Soporte
