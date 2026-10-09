@@ -102,5 +102,13 @@ class DatabaseSeeder extends Seeder
 
         }
 
+        // 3. Imágenes: ilustraciones generadas con `php artisan piquantum:product-images`
+        foreach (Product::with('variants')->get() as $product) {
+            $product->update(['image' => $product->defaultImagePath()]);
+            foreach ($product->variants as $variant) {
+                $variant->update(['image' => $variant->defaultImagePath()]);
+            }
+        }
+
     }
 }

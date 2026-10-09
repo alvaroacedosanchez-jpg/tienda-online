@@ -13,6 +13,7 @@ Genera pedidos y **eventos de negocio** que otro sistema podrá consumir en la T
 - Cuentas de cliente: registro, inicio y cierre de sesión. Para comprar hay que tener cuenta.
 - Área de cliente (`/mi-cuenta`): pedidos en curso y anteriores, facturas en PDF, cambio de contraseña, dirección por defecto y baja de la cuenta.
 - Facturas con numeración correlativa por año (`FAC-2026-0001`), emitidas en la misma transacción que el pago aprobado.
+- Imagen de cada salsa y de cada tamaño (ilustraciones SVG generadas con `php artisan piquantum:product-images`). En la ficha, al elegir otro tamaño cambian la imagen, el precio y el stock. Se pueden sustituir por fotos reales cambiando la columna `image` de `products` o `product_variants`.
 - Checkout con validación, **pago simulado** (tarjeta/transferencia) y pedido con referencia única (`PQ-YYYYMMDD-XXXXXX`). Pedido, líneas, stock, ficha de cliente y eventos se guardan en una única transacción: si un paso falla, no se guarda nada.
 - Cada pedido guarda su propia dirección de envío (copia histórica) y solo lo puede ver y pagar su dueño.
 - Estados de pedido: `creado → pagado_simulado → pendiente_preparacion → enviado`, además de `cancelado` e `incidencia`.
@@ -98,7 +99,7 @@ El número de tarjeta **no se guarda**: solo los 4 últimos dígitos.
 - No se puede dar de baja una cuenta con pedidos en curso.
 - Una sola cuenta de back-office; sin roles ni auditoría de cambios de estado más allá del evento.
 - Sin pruebas de carga ni gestión de concurrencia avanzada (solo bloqueo de stock en el pedido).
-- Sin imágenes reales de producto (se usan emojis).
+- Las imágenes de producto son ilustraciones SVG generadas por código, no fotografías.
 
 ## Punto de partida y uso de IA
 

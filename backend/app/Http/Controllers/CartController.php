@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 
 class CartController extends Controller
 {
+    /** Paso 1 · Muestra el carrito con sus líneas y el resumen de importes. */
     public function show(CartService $cart)
     {
         return view('cart.index', [
@@ -19,6 +20,7 @@ class CartController extends Controller
         ]);
     }
 
+    /** Paso 1 · Añade un producto (o una variante de tamaño) al carrito y registra cart.item_added. */
     public function add(Request $request, Product $product, CartService $cart, EventLogger $events)
     {
         $data = $request->validate([
@@ -51,6 +53,7 @@ class CartController extends Controller
         return redirect()->route('cart.show')->with('status', "{$itemLabel} añadido al carrito.");
     }
 
+    /** Paso 1 · Cambia la cantidad de una línea del carrito (0 la elimina). */
     public function update(Request $request, string $itemKey, CartService $cart)
     {
         $data = $request->validate([
@@ -63,6 +66,7 @@ class CartController extends Controller
         return redirect()->route('cart.show');
     }
 
+    /** Paso 1 · Quita una línea del carrito. */
     public function remove(string $itemKey, CartService $cart)
     {
         // $itemKey elimina la variante específica o el producto simple
@@ -71,6 +75,7 @@ class CartController extends Controller
         return redirect()->route('cart.show')->with('status', 'Producto eliminado del carrito.');
     }
 
+    /** Paso 1 · Aplica o quita un código de descuento. */
     public function applyCode(Request $request, CartService $cart)
     {
         $data = $request->validate(['code' => ['nullable', 'string', 'max:30']]);

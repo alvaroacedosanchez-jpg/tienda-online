@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 
 class CheckoutController extends Controller
 {
+    /** Paso 2 · Muestra el formulario de envío (prerrellenado) y registra checkout.started. */
     public function show(Request $request, CartService $cart, EventLogger $events)
     {
         if ($cart->isEmpty()) {
@@ -33,6 +34,7 @@ class CheckoutController extends Controller
         ]);
     }
 
+    /** Paso 3 · Valida los datos de envío y crea el pedido en una transacción (OrderService). */
     public function store(Request $request, OrderService $orders)
     {
         // El correo no se pide: se usa el de la cuenta del usuario
@@ -60,6 +62,7 @@ class CheckoutController extends Controller
         return redirect()->route('orders.pay', $order);
     }
 
+    /** Paso 4 · Muestra el formulario de pago simulado (solo del dueño y si está sin pagar). */
     public function payForm(Request $request, Order $order)
     {
         // 404 y no 403: no revelamos que existe un pedido con esa referencia
@@ -72,6 +75,7 @@ class CheckoutController extends Controller
         return view('checkout.pay', ['order' => $order->load('items')]);
     }
 
+    /** Paso 4 · Cobra el pedido: pago, factura y cambios de estado en una transacción. */
     public function pay(Request $request, Order $order, PaymentSimulator $simulator)
     {
         abort_unless($order->isOwnedBy($request->user()), 404);

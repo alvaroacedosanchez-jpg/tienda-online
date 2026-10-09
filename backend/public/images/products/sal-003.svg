@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240" role="img" aria-labelledby="t">
+    <title id="t">Salsa Verde Jalapeño &amp; Lima</title>
+    <defs>
+        
+        <symbol id="mini" viewBox="0 0 40 90">
+            <rect x="12" y="2" width="16" height="10" rx="2" fill="#1d2433"/>
+            <rect x="14" y="11" width="12" height="16" fill="currentColor"/>
+            <path d="M14 26 Q4 32 4 42 L4 84 Q4 88 8 88 L32 88 Q36 88 36 84 L36 42 Q36 32 26 26 Z" fill="currentColor"/>
+            <rect x="8" y="50" width="24" height="22" rx="3" fill="#fff" opacity=".92"/>
+        </symbol>
+        <linearGradient id="shine" x1="0" x2="1">
+            <stop offset="0" stop-color="#fff" stop-opacity=".35"/>
+            <stop offset=".35" stop-color="#fff" stop-opacity="0"/>
+        </linearGradient>
+    </defs>
+
+    
+    <rect width="240" height="240" fill="#fafafa"/>
+    <circle cx="120" cy="128" r="96" fill="#4f8a2b" opacity=".12"/>
+    <ellipse cx="120" cy="214" rx="46" ry="7" fill="#1d2433" opacity=".12"/>
+
+            
+        <g transform="translate(120 212) scale(1) translate(-120 -212)">
+            <rect x="99" y="30" width="42" height="26" rx="5" fill="#1d2433"/>
+            <rect x="99" y="48" width="42" height="5" fill="#000" opacity=".25"/>
+            <rect x="106" y="55" width="28" height="30" fill="#4f8a2b"/>
+            <path d="M106 84 Q78 96 78 120 L78 202 Q78 212 88 212 L152 212 Q162 212 162 202 L162 120 Q162 96 134 84 Z" fill="#4f8a2b"/>
+            <path d="M106 84 Q78 96 78 120 L78 202 Q78 212 88 212 L152 212 Q162 212 162 202 L162 120 Q162 96 134 84 Z" fill="url(#shine)"/>
+
+            
+            <rect x="85" y="120" width="70" height="72" rx="6" fill="#fff"/>
+            <text x="120" y="138" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11.5" font-weight="700" fill="#1d2433">VERDE</text>
+            <text x="120" y="151" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="7.5" fill="#475467">Jalapeño y lima</text>
+            
+                            <path transform="translate(100 166)" d="M0 -6 C3 -2 4 1 3 3 C2 6 -2 6 -3 3 C-4 1 -1 -2 0 -6 Z" fill="#e8461c"/>
+                            <path transform="translate(110 166)" d="M0 -6 C3 -2 4 1 3 3 C2 6 -2 6 -3 3 C-4 1 -1 -2 0 -6 Z" fill="#d0d5dd"/>
+                            <path transform="translate(120 166)" d="M0 -6 C3 -2 4 1 3 3 C2 6 -2 6 -3 3 C-4 1 -1 -2 0 -6 Z" fill="#d0d5dd"/>
+                            <path transform="translate(130 166)" d="M0 -6 C3 -2 4 1 3 3 C2 6 -2 6 -3 3 C-4 1 -1 -2 0 -6 Z" fill="#d0d5dd"/>
+                            <path transform="translate(140 166)" d="M0 -6 C3 -2 4 1 3 3 C2 6 -2 6 -3 3 C-4 1 -1 -2 0 -6 Z" fill="#d0d5dd"/>
+                        <text x="120" y="185" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="9" font-weight="700" fill="#4f8a2b">200 ml</text>
+        </g>
+    </svg>

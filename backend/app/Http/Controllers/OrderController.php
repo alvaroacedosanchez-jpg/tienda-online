@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 
 class OrderController extends Controller
 {
+    /** Muestra al cliente su pedido: estado, líneas, envío y pagos. */
     public function show(Request $request, Order $order)
     {
         // Solo el dueño ve su pedido (el admin lo consulta desde el back-office).

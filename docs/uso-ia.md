@@ -171,3 +171,28 @@ Plantilla para cada entrada:
   - `php artisan test`: **30/30** (19 anteriores + 11 nuevos: acceso de invitados, pedidos en curso y anteriores solo propios, facturas correlativas y su evento, sin factura si el pago se rechaza, **rollback del pago si falla la factura**, PDF solo para el dueño, contraseña, dirección, alta de ficha de cliente, y baja bloqueada y efectiva).
   - Recorrido HTTP real: menú "Mi cuenta (Laura Prueba)" → compra y pago → resumen con el pedido "Pendiente de preparación" y la factura `FAC-2026-0001` → descarga del PDF (`application/pdf`, empieza por `%PDF`) → cambio de dirección y de contraseña → baja bloqueada por el pedido en curso → otro cliente recibe 404 al pedir el PDF.
   - Revisión visual del PDF renderizado.
+
+### 2026-10-10 · Abel · Imágenes de productos y variantes (rama `feature/imagenes-productos`)
+- **Tarea:** una imagen por salsa y por variante de tamaño, que cambie en la ficha al elegir otro tamaño.
+- **Instrucciones y decisiones de Abel (no de la IA):**
+  - Ilustraciones SVG generadas por código, porque no hay fotos reales.
+  - Al cambiar de variante se actualizan también el precio y el stock.
+  - Imágenes en la ficha, las tarjetas del catálogo y la portada, y el carrito y el checkout.
+  - Lo programa la IA, con un plan aprobado antes.
+- **Partes asistidas:** la IA escribió entero este paso:
+  - migración `add_image_to_products_and_variants` (columna `image`), `imageUrl()` y `defaultImagePath()` en `Product` y `ProductVariant`, y asignación en el seeder;
+  - comando `php artisan piquantum:product-images`, que genera las ilustraciones SVG desde la plantilla `resources/views/images/bottle.blade.php`:
+    - el color depende del chile y hay de 1 a 5 llamas según el picor;
+    - el bote crece con el tamaño y los packs se dibujan como caja regalo;
+    - 15 archivos en `public/images/products/`;
+  - ficha de producto: imagen, precio y stock de la variante elegida, con datos `data-*` en cada opción y un script sencillo (`@stack('scripts')` en el layout);
+  - imágenes en las tarjetas, y miniaturas en el carrito y el checkout (CSS en `app.css`);
+  - 6 tests nuevos en `tests/Feature/ProductImagesTest.php`; README.
+- **Errores detectados:**
+  - **En el código existente (no de esta tarea):** el carrito no permitía actualizar ni quitar líneas con variante. El formulario enviaba el id de la variante (`31`), pero la línea se guarda en la sesión como `producto_variante` (`1_31`). Se reprodujo con una prueba antes de corregirlo; ahora se usa la clave real y hay un test de regresión.
+  - **En la IA:** ninguno en el resultado final. Las primeras capturas con la vista previa de macOS mostraban márgenes blancos; era un defecto de la vista previa, no del SVG (en Chrome se ven bien).
+- **Cambios del grupo:** decisiones indicadas arriba.
+- **Validación:**
+  - `php artisan test`: **36/36** (30 anteriores + 6 nuevos).
+  - Capturas reales con Chrome en modo headless del catálogo y de la ficha.
+  - En Chrome, al elegir 200 ml la imagen pasa a `sal-002-200-ml.svg` y el precio a 9,90 €; al elegir 100 ml, a `sal-002-100-ml.svg` y 6,50 €.
