@@ -48,5 +48,6 @@
         <p>{{ config('shop.name') }} — proyecto académico (Soluciones Informáticas para la Empresa). Datos ficticios. Sin pagos ni envíos reales.</p>
     </div>
 </footer>
+@stack('scripts')
 </body>
 </html>

@@ -41,7 +41,11 @@
             <h2>Tu pedido</h2>
             <ul class="plain">
                 @foreach ($items as $item)
-                    <li>
+                    <li class="line-product">
+                        @php $thumb = ! empty($item['variant']) ? $item['variant']->imageUrl() : $item['product']->imageUrl(); @endphp
+                        @if ($thumb)
+                            <img class="line-thumb" src="{{ $thumb }}" alt="" width="40" height="40">
+                        @endif
                         {{ $item['quantity'] }} × {{ $item['product']->name }}
                         @if (!empty($item['variant']))
                             <small class="muted">({{ $item['variant']->size }})</small>
