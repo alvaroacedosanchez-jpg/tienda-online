@@ -11,6 +11,8 @@ Genera pedidos y **eventos de negocio** que otro sistema podrá consumir en la T
 - Portada, catálogo por categorías y ficha de producto (9 productos, 4 categorías).
 - Carrito en sesión, código de descuento, envío (gratis desde 60 €) e IVA (21 % incluido).
 - Cuentas de cliente: registro, inicio y cierre de sesión. Para comprar hay que tener cuenta.
+- Área de cliente (`/mi-cuenta`): pedidos en curso y anteriores, facturas en PDF, cambio de contraseña, dirección por defecto y baja de la cuenta.
+- Facturas con numeración correlativa por año (`FAC-2026-0001`), emitidas en la misma transacción que el pago aprobado.
 - Checkout con validación, **pago simulado** (tarjeta/transferencia) y pedido con referencia única (`PQ-YYYYMMDD-XXXXXX`). Pedido, líneas, stock, ficha de cliente y eventos se guardan en una única transacción: si un paso falla, no se guarda nada.
 - Cada pedido guarda su propia dirección de envío (copia histórica) y solo lo puede ver y pagar su dueño.
 - Estados de pedido: `creado → pagado_simulado → pendiente_preparacion → enviado`, además de `cancelado` e `incidencia`.
@@ -25,9 +27,11 @@ Genera pedidos y **eventos de negocio** que otro sistema podrá consumir en la T
 | Controladores (HTTP, validación) | `app/Http/Controllers/` |
 | Lógica de negocio | `app/Services/` → `CartService` (importes), `OrderService` (pedido/estados/stock), `PaymentSimulator`, `EventLogger` |
 | Persistencia | `app/Models/` (Eloquent) + `database/migrations/` + `database/seeders/` |
-| Reglas configurables | `config/shop.php` (IVA, envío, códigos de descuento) |
+| Reglas configurables | `config/shop.php` (IVA, envío, códigos de descuento, datos de la empresa ficticia para las facturas) |
 
-Tablas: `categories`, `products`, `customers`, `orders`, `order_items`, `payments`, `events`, `support_tickets`, `users` (solo admin de prueba).
+Tablas: `categories`, `products`, `customers`, `orders`, `order_items`, `payments`, `invoices`, `events`, `support_tickets`, `users` (admin y clientes de prueba).
+
+Dependencia añadida: `barryvdh/laravel-dompdf`, para generar las facturas en PDF desde una vista Blade. Se eligió frente a generar el PDF a mano o depender de un servicio externo porque es la integración estándar de Laravel y no necesita binarios en el servidor (funciona en un hosting PHP compartido).
 
 ## Eventos
 
@@ -42,6 +46,7 @@ Se guardan en la tabla `events` (`type`, `occurred_at`, `session_id`, `order_id`
 | `payment.simulated` | se intenta un pago simulado (aprobado o rechazado) |
 | `order.status_changed` | cambia el estado de un pedido |
 | `support.requested` | se envía una solicitud de soporte |
+| `invoice.issued` | se emite la factura de un pedido pagado |
 
 Consumo desde otro sistema (Tarea 2), con sesión de administrador: `GET /admin/eventos.json` y `GET /admin/eventos.csv` (parámetros opcionales `tipo` y `desde`).
 
@@ -86,10 +91,11 @@ El número de tarjeta **no se guarda**: solo los 4 últimos dígitos.
 
 ## Limitaciones conocidas
 
-- Pagos, envíos e impuestos **simulados**; sin pasarela real ni facturación.
+- Pagos, envíos e impuestos **simulados**; sin pasarela real. Las facturas **no tienen validez fiscal** (empresa y CIF ficticios) y no hay facturas rectificativas: cancelar un pedido pagado no anula su factura.
 - Carrito en sesión (se pierde al caducar la sesión o al cerrar sesión).
 - Un usuario dado de baja (soft delete) conserva su correo ocupado y no puede volver a registrarse con él.
-- La dirección por defecto del cliente es la de su primera compra; no hay página para editarla.
+- El nombre y el correo de la cuenta no se pueden cambiar desde el área de cliente.
+- No se puede dar de baja una cuenta con pedidos en curso.
 - Una sola cuenta de back-office; sin roles ni auditoría de cambios de estado más allá del evento.
 - Sin pruebas de carga ni gestión de concurrencia avanzada (solo bloqueo de stock en el pedido).
 - Sin imágenes reales de producto (se usan emojis).
