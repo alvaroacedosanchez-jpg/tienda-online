@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Exceptions\CheckoutException;
+use App\Models\Invoice;
 use App\Models\Order;
 use App\Models\Payment;
 use Illuminate\Support\Facades\DB;
@@ -22,8 +23,8 @@ class PaymentSimulator
     ) {}
 
     /**
-     * Registra el intento de pago, su evento y, si se aprueba, los cambios de estado,
-     * todo en una transacción. El pedido se bloquea para que dos peticiones
+     * Registra el intento de pago, su evento y, si se aprueba, la factura y los cambios
+     * de estado, todo en una transacción. El pedido se bloquea para que dos peticiones
      * simultáneas no puedan pagarlo dos veces.
      *
      * @throws CheckoutException si el pedido ya no está pendiente de pago
@@ -58,6 +59,15 @@ class PaymentSimulator
 
             if ($approved) {
                 $this->orders->changeStatus($order, Order::PAID, 'payment');
+
+                // La factura se emite en la misma transacción: sin factura no hay pago, y al revés
+                $invoice = Invoice::issueFor($order);
+                $this->events->log(EventLogger::INVOICE_ISSUED, [
+                    'reference' => $order->reference,
+                    'invoice_number' => $invoice->number,
+                    'total' => (float) $invoice->total,
+                ], $order->id);
+
                 $this->orders->changeStatus($order, Order::PENDING_PREPARATION, 'payment');
             }
 

@@ -142,3 +142,32 @@ Plantilla para cada entrada:
 - **Errores detectados:** la versión de `main` lanzaba `RuntimeException` dentro de la transacción; con la nueva gestión de errores se habría mostrado como un error 500 en vez de como un mensaje de stock. Se sustituyó por `CheckoutException`.
 - **Cambios del grupo:** —
 - **Validación:** `php artisan test` **19/19**, con 2 tests nuevos de variantes (precio y stock de la variante, y rollback sin stock de la variante). `migrate:fresh --seed` correcto con las migraciones de variantes.
+
+### 2026-10-10 · Abel · Área de cliente "Mi cuenta": pedidos, facturas y datos (rama `feature/area-cliente`)
+- **Tarea:** menú de usuario para ver el estado de los pedidos, los pedidos anteriores y las facturas, y para cambiar los datos de la cuenta.
+- **Instrucciones y decisiones de Abel (no de la IA):**
+  - Facturas en una tabla propia, con numeración correlativa y **PDF descargable**. Se acepta añadir la dependencia `barryvdh/laravel-dompdf`.
+  - El usuario puede cambiar su **contraseña**, su **dirección por defecto** y **darse de baja**. El nombre y el correo no son editables.
+  - Lo programa la IA bajo sus instrucciones, con un plan aprobado antes.
+- **Partes asistidas:** la IA escribió entero este paso:
+  - rutas `/mi-cuenta/*` (grupo `auth`), `AccountController`, `InvoiceController` y vistas `account/*` (resumen, pedidos en curso y anteriores, facturas, formularios);
+  - enlace "Mi cuenta" en el menú, y número de factura en el detalle de pedido del back-office;
+  - `User::orders()` (`hasManyThrough`), `Order::IN_PROGRESS` y la relación `Order::invoice()`;
+  - migración `create_invoices_table` y modelo `Invoice::issueFor()`: número `FAC-AAAA-NNNN` correlativo por año con `lockForUpdate` y único `(year, sequence)`; copia de los datos de facturación y de los importes;
+  - emisión de la factura y del evento nuevo `invoice.issued` **dentro de la transacción del pago** (`PaymentSimulator`);
+  - vista `invoices/pdf.blade.php` (base imponible, IVA, datos de la empresa ficticia en `config/shop.php` y aviso de documento sin validez fiscal);
+  - regla de negocio de la baja: se bloquea si hay pedidos en curso; si no, soft delete y cierre de sesión;
+  - 11 tests nuevos en `tests/Feature/AccountTest.php`;
+  - README: área de cliente, justificación de la dependencia, evento nuevo y limitaciones.
+- **Errores detectados en la IA (y corregidos):**
+  - La baja bloqueada volvía con `back()` a la página anterior, que podía no ser "Mi cuenta"; ahora redirige siempre a "Mi cuenta".
+  - El PDF pesaba 878 KB porque incrustaba la fuente completa; activando `isFontSubsettingEnabled` baja a unos 25 KB.
+  - En el PDF, las cabeceras de las columnas numéricas no estaban alineadas a la derecha.
+- **Otras observaciones:**
+  - Al instalar dompdf, Composer alineó la carpeta `vendor/` local (Symfony 8 → 7.4) con el `composer.lock` del equipo, que ya fijaba Symfony 7.4 por la compatibilidad con PHP 8.3 del hosting. El lock solo añade los paquetes de dompdf.
+  - Pint ordenó los `use` de `User.php` y `routes/web.php`.
+- **Cambios del grupo:** decisiones de alcance indicadas arriba.
+- **Validación:**
+  - `php artisan test`: **30/30** (19 anteriores + 11 nuevos: acceso de invitados, pedidos en curso y anteriores solo propios, facturas correlativas y su evento, sin factura si el pago se rechaza, **rollback del pago si falla la factura**, PDF solo para el dueño, contraseña, dirección, alta de ficha de cliente, y baja bloqueada y efectiva).
+  - Recorrido HTTP real: menú "Mi cuenta (Laura Prueba)" → compra y pago → resumen con el pedido "Pendiente de preparación" y la factura `FAC-2026-0001` → descarga del PDF (`application/pdf`, empieza por `%PDF`) → cambio de dirección y de contraseña → baja bloqueada por el pedido en curso → otro cliente recibe 404 al pedir el PDF.
+  - Revisión visual del PDF renderizado.

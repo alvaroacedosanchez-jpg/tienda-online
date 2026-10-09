@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Order extends Model
 {
@@ -23,6 +24,9 @@ class Order extends Model
         self::CANCELLED => 'Cancelado',
         self::INCIDENT => 'Con incidencia',
     ];
+
+    /** Estados de un pedido que aún no ha terminado (ni enviado ni cancelado). */
+    public const IN_PROGRESS = [self::CREATED, self::PAID, self::PENDING_PREPARATION, self::INCIDENT];
 
     /** Transiciones que puede hacer el back-office desde cada estado. */
     public const TRANSITIONS = [
@@ -65,6 +69,11 @@ class Order extends Model
     public function payments(): HasMany
     {
         return $this->hasMany(Payment::class);
+    }
+
+    public function invoice(): HasOne
+    {
+        return $this->hasOne(Invoice::class);
     }
 
     /** El pedido pertenece a este usuario (a través de su ficha de cliente). */

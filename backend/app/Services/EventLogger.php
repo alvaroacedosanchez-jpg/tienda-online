@@ -17,6 +17,7 @@ class EventLogger
     public const PAYMENT_SIMULATED = 'payment.simulated';
     public const ORDER_STATUS_CHANGED = 'order.status_changed';
     public const SUPPORT_REQUESTED = 'support.requested';
+    public const INVOICE_ISSUED = 'invoice.issued';
 
     public function log(string $type, array $payload = [], ?int $orderId = null): Event
     {
