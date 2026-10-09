@@ -25,6 +25,10 @@
         <h2>Cliente (datos de prueba)</h2>
         <p>{{ $order->customer->name }} · {{ $order->customer->email }}</p>
 
+        @if ($order->invoice)
+            <p>Factura: <strong>{{ $order->invoice->number }}</strong> · emitida el {{ $order->invoice->issued_at->format('d/m/Y H:i') }}</p>
+        @endif
+
         <h2>Envío</h2>
         <p>{{ $order->shipping_name }}@if ($order->shipping_phone) · {{ $order->shipping_phone }}@endif<br>
         {{ $order->shipping_address }}, {{ $order->shipping_postal_code }} {{ $order->shipping_city }}</p>
