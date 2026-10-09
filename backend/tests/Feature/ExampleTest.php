@@ -2,16 +2,21 @@
 
 namespace Tests\Feature;
 
-// use Illuminate\Foundation\Testing\RefreshDatabase;
+use Database\Seeders\DatabaseSeeder;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class ExampleTest extends TestCase
 {
+    use RefreshDatabase;
+
     /**
-     * A basic test example.
+     * La portada carga con la base de datos de prueba migrada y sembrada.
      */
     public function test_the_application_returns_a_successful_response(): void
     {
+        $this->seed(DatabaseSeeder::class);
+
         $response = $this->get('/');
 
         $response->assertStatus(200);
