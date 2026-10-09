@@ -96,3 +96,13 @@ Plantilla para cada entrada:
   - En la IA: ninguno.
 - **Decisiones de seguridad:** mensaje de error genérico para no revelar qué correos están registrados (enumeración de usuarios); logout por POST con CSRF.
 - **Validación:** peticiones HTTP reales contra un servidor de pruebas: login correcto (redirige con "Bienvenido/a, Laura Prueba."), contraseña incorrecta (mensaje genérico y email conservado) y logout (redirige a la portada).
+
+### 2026-10-09 · Abel · Menú según la sesión y rutas protegidas
+- **Tarea:** que la cabecera muestre "Iniciar sesión / Crear cuenta" a los visitantes y "Hola, {nombre} / Salir" a los usuarios conectados; impedir que un usuario conectado entre en el login o el registro.
+- **Partes asistidas:** la IA escribió entero este paso a petición de Abel:
+  - `resources/views/layouts/app.blade.php`: bloques `@guest` / `@auth` y botón "Salir" como formulario `POST` con `@csrf`;
+  - `routes/web.php`: middleware `guest` para registro y login, y `auth` para logout;
+  - `public/css/app.css`: 3 reglas para que el formulario de "Salir" y el saludo queden en línea dentro del menú.
+- **Errores detectados en la IA:** ninguno.
+- **Cambios del grupo:** —
+- **Validación:** peticiones HTTP reales contra un servidor de pruebas: menú de visitante; menú de Laura conectada; `/login` y `/registro` redirigen a la portada con sesión iniciada; "Salir" vuelve al menú de visitante; el admin ve además "Back-office"; logout sin sesión redirige a `/login`. `php artisan test` sigue en 5/10 (fallos conocidos del checkout, paso 5).

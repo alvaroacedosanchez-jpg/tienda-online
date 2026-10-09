@@ -34,12 +34,14 @@ Route::get('/soporte', [SupportController::class, 'create'])->name('support.crea
 Route::post('/soporte', [SupportController::class, 'store'])->name('support.store');
 
 // Cuentas de usuarios
-Route::get('/registro', [RegisterController::class, 'create'])->name('register.create');
-Route::post('/registro', [RegisterController::class, 'store'])->name('register.store');
-Route::get('/login', [LoginController::class, 'create'])->name('login');
-Route::post('/login', [LoginController::class, 'store'])->name('login.store');
-Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
-
+// Registro y login solo para visitantes sin sesión; logout solo para usuarios con sesión
+Route::middleware('guest')->group(function () {
+    Route::get('/registro', [RegisterController::class, 'create'])->name('register.create');
+    Route::post('/registro', [RegisterController::class, 'store'])->name('register.store');
+    Route::get('/login', [LoginController::class, 'create'])->name('login');
+    Route::post('/login', [LoginController::class, 'store'])->name('login.store');
+});
+Route::post('/logout', [LoginController::class, 'destroy'])->middleware('auth')->name('logout');
 
 // Back-office
 Route::prefix('admin')->name('admin.')->group(function () {
