@@ -28,7 +28,11 @@
         <p class="price big"><span id="product-price">{{ number_format($price, 2, ',', '.') }} €</span> <span class="small muted">IVA incluido</span></p>
         <p>{{ $product->description }}</p>
 
-        @if ($product->stock > 0)
+        @if (auth()->user()?->is_admin)
+            {{-- El administrador consulta la ficha, pero no compra --}}
+            <p id="product-stock" class="{{ $stockClass($stock) }}">{{ $stockText($stock) }}</p>
+            <p class="small muted">Estás conectado como administrador: la cuenta de administración no puede hacer pedidos.</p>
+        @elseif ($product->stock > 0)
             <p id="product-stock" class="{{ $stockClass($stock) }}" aria-live="polite">{{ $stockText($stock) }}</p>
             <form method="POST" action="{{ route('cart.add', $product) }}" class="inline-form">
                 @csrf

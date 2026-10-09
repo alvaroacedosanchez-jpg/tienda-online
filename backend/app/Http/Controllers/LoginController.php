@@ -28,6 +28,13 @@ class LoginController extends Controller
         if (Auth::attempt($data)) {
             $request->session()->regenerate();
 
+            // El administrador no compra: va a su back-office aunque viniera del checkout
+            if (Auth::user()->is_admin) {
+                $request->session()->forget('url.intended');
+
+                return redirect()->route('admin.orders.index');
+            }
+
             return redirect()->intended(route('home'))->with('status', 'Bienvenido/a, '.Auth::user()->name.'.');
         }
 
