@@ -248,6 +248,42 @@ class PurchaseFlowTest extends TestCase
         $this->assertNotEmpty(session('cart'));
     }
 
+    public function test_variant_purchase_uses_variant_price_and_stock(): void
+    {
+        $this->actingAsCustomer();
+        $product = Product::where('sku', 'SAL-002')->firstOrFail();
+        $variant = $product->variants()->where('size', '200 ml')->firstOrFail(); // 9,90 €, stock 10
+        $productStock = $product->stock;
+
+        $this->post(route('cart.add', $product), ['quantity' => 2, 'variant_id' => $variant->id]);
+        $this->post('/checkout', $this->customerData())->assertRedirect();
+
+        $item = Order::firstOrFail()->items()->firstOrFail();
+        $this->assertSame($variant->id, $item->product_variant_id);
+        $this->assertSame('200 ml', $item->variant_size);
+        $this->assertEquals(9.90, (float) $item->unit_price);
+        $this->assertEquals(19.80, (float) $item->line_total);
+        $this->assertSame(8, $variant->fresh()->stock);            // se descuenta de la variante
+        $this->assertSame($productStock, $product->fresh()->stock); // y no del producto
+    }
+
+    public function test_variant_without_stock_rolls_back_everything(): void
+    {
+        $this->actingAsCustomer();
+        $product = Product::where('sku', 'SAL-002')->firstOrFail();
+        $variant = $product->variants()->where('size', '200 ml')->firstOrFail();
+
+        $this->post(route('cart.add', $product), ['quantity' => 3, 'variant_id' => $variant->id]);
+        $variant->update(['stock' => 2]);
+
+        $this->post('/checkout', $this->customerData())
+            ->assertRedirect(route('cart.show'))
+            ->assertSessionHasErrors('cart');
+
+        $this->assertSame(0, Order::count());
+        $this->assertSame(2, $variant->fresh()->stock);
+    }
+
     public function test_other_users_cannot_see_or_pay_an_order(): void
     {
         $this->actingAsCustomer();

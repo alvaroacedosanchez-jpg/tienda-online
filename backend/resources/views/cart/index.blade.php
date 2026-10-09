@@ -7,23 +7,53 @@
     <p>Tu carrito está vacío. <a href="{{ route('catalog') }}">Ir al catálogo</a></p>
 @else
     <table class="table">
-        <thead><tr><th>Producto</th><th>Precio</th><th>Cantidad</th><th>Total</th><th></th></tr></thead>
+        <thead>
+            <tr>
+                <th>Producto</th>
+                <th>Precio</th>
+                <th>Cantidad</th>
+                <th>Total</th>
+                <th></th>
+            </tr>
+        </thead>
         <tbody>
         @foreach ($items as $item)
+            @php
+                // Detectar variante y precio real
+                $variant = $item['variant'] ?? null;
+                $price = $variant ? $variant->price : $item['product']->price;
+                // Clave/ID único para la ruta (variante o producto)
+                $itemKey = $variant ? $variant->id : $item['product']->id;
+            @endphp
             <tr>
-                <td><a href="{{ route('product.show', $item['product']) }}">{{ $item['product']->name }}</a></td>
-                <td>{{ number_format($item['product']->price, 2, ',', '.') }} €</td>
                 <td>
-                    <form method="POST" action="{{ route('cart.update', $item['product']) }}" class="inline-form">
-                        @csrf @method('PATCH')
+                    <a href="{{ route('product.show', $item['product']) }}">
+                        {{ $item['product']->name }}
+                    </a>
+                    @if ($variant)
+                        <span class="badge bg-secondary ms-1">{{ $variant->size }}</span>
+                    @endif
+                </td>
+                <td>{{ number_format($price, 2, ',', '.') }} €</td>
+                <td>
+                    <form method="POST" action="{{ route('cart.update', $itemKey) }}" class="inline-form">
+                        @csrf 
+                        @method('PATCH')
+                        @if ($variant)
+                            <input type="hidden" name="variant_id" value="{{ $variant->id }}">
+                        @endif
                         <input type="number" name="quantity" value="{{ $item['quantity'] }}" min="0" max="10" aria-label="Cantidad de {{ $item['product']->name }}">
                         <button class="btn btn-small" type="submit">Actualizar</button>
                     </form>
                 </td>
                 <td>{{ number_format($item['line_total'], 2, ',', '.') }} €</td>
                 <td>
-                    <form method="POST" action="{{ route('cart.remove', $item['product']) }}">
-                        @csrf @method('DELETE')
+                    <form method="POST" action="{{ route('cart.remove', $itemKey) }}">
+                        @csrf 
+                        @method('DELETE')
+                        @if ($variant)
+                            <input type="hidden" name="variant_id" value="{{ $variant->id }}">
+                        @endif
                         <button class="btn btn-small btn-light" type="submit">Quitar</button>
                     </form>
                 </td>

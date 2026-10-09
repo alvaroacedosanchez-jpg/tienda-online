@@ -17,6 +17,21 @@
             </p>
             <form method="POST" action="{{ route('cart.add', $product) }}" class="inline-form">
                 @csrf
+                @if($product->hasVariants())
+                    <div class="mb-3">
+                        <label for="variant_id" class="form-label">Selecciona el tamaño:</label>
+                        <select name="variant_id" id="variant_id" class="form-select" required>
+                            @foreach($product->variants as $variant)
+                                <option value="{{ $variant->id }}">
+                                    {{ $variant->size }} - {{ number_format($variant->price, 2) }}€
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                @else
+                    <p class="h4 text-success">{{ number_format($product->price, 2) }}€</p>
+                @endif
+                
                 <label for="quantity">Cantidad</label>
                 <input type="number" id="quantity" name="quantity" value="1" min="1" max="{{ min(10, $product->stock) }}">
                 <button class="btn" type="submit">Añadir al carrito</button>

@@ -6,6 +6,7 @@ use App\Exceptions\CheckoutException;
 use App\Models\Customer;
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\ProductVariant;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -46,28 +47,47 @@ class OrderService
                 'postal_code' => $shipping['postal_code'],
             ]);
 
-            // 2. Bloquear los productos (en orden de id para evitar interbloqueos) y releer precio y stock
+            // 2. Bloquear productos y variantes (en orden de id para evitar interbloqueos) y releer precio y stock
             $products = Product::whereIn('id', $cartItems->pluck('product.id'))
                 ->orderBy('id')
                 ->lockForUpdate()
                 ->get()
                 ->keyBy('id');
+            $variants = ProductVariant::whereIn('id', $cartItems->pluck('variant.id')->filter())
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('id');
 
-            // 3. Recalcular las líneas con los datos bloqueados, no con los leídos antes de la transacción
-            $items = $cartItems->map(function (array $item) use ($products) {
+            // 3. Recalcular las líneas con los datos bloqueados, no con los leídos antes de la transacción.
+            //    Si la línea tiene variante (tamaño), el precio y el stock son los de la variante.
+            $items = $cartItems->map(function (array $item) use ($products, $variants) {
                 /** @var Product|null $product */
                 $product = $products->get($item['product']->id);
                 if (! $product || ! $product->active) {
                     throw new CheckoutException("«{$item['product']->name}» ya no está disponible.");
                 }
-                if ($product->stock < $item['quantity']) {
-                    throw new CheckoutException("No hay stock suficiente de «{$product->name}».");
+
+                $variant = null;
+                if (! empty($item['variant'])) {
+                    /** @var ProductVariant|null $variant */
+                    $variant = $variants->get($item['variant']->id);
+                    if (! $variant || (int) $variant->product_id !== (int) $product->id) {
+                        throw new CheckoutException("«{$product->name} ({$item['variant']->size})» ya no está disponible.");
+                    }
+                }
+
+                $stockSource = $variant ?? $product;
+                if ($stockSource->stock < $item['quantity']) {
+                    $label = $variant ? "{$product->name} ({$variant->size})" : $product->name;
+                    throw new CheckoutException("No hay stock suficiente de «{$label}».");
                 }
 
                 return [
                     'product' => $product,
+                    'variant' => $variant,
                     'quantity' => $item['quantity'],
-                    'line_total' => round($product->price * $item['quantity'], 2),
+                    'line_total' => round($stockSource->price * $item['quantity'], 2),
                 ];
             });
             $summary = $this->cart->summaryFor($items);
@@ -93,12 +113,17 @@ class OrderService
             // 5. Líneas (copia histórica de nombre y precio) y descuento de stock
             foreach ($items as $item) {
                 $product = $item['product'];
-                $product->decrement('stock', $item['quantity']);
+                $variant = $item['variant'];
+
+                // El stock se descuenta de la variante si la hay; si no, del producto
+                ($variant ?? $product)->decrement('stock', $item['quantity']);
 
                 $order->items()->create([
                     'product_id' => $product->id,
+                    'product_variant_id' => $variant?->id,
                     'product_name' => $product->name,
-                    'unit_price' => $product->price,
+                    'variant_size' => $variant?->size,
+                    'unit_price' => ($variant ?? $product)->price,
                     'quantity' => $item['quantity'],
                     'line_total' => $item['line_total'],
                 ]);
@@ -133,7 +158,11 @@ class OrderService
         DB::transaction(function () use ($order, $old, $newStatus, $origin) {
             if ($newStatus === Order::CANCELLED) {
                 foreach ($order->items as $item) {
-                    Product::whereKey($item->product_id)->increment('stock', $item->quantity);
+                    if ($item->product_variant_id) {
+                        ProductVariant::whereKey($item->product_variant_id)->increment('stock', $item->quantity);
+                    } else {
+                        Product::whereKey($item->product_id)->increment('stock', $item->quantity);
+                    }
                 }
             }
             $order->update(['status' => $newStatus]);

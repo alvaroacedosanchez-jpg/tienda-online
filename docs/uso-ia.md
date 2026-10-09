@@ -130,3 +130,15 @@ Plantilla para cada entrada:
   - `php artisan test`: **17/17** (antes 5/10).
   - Recorrido HTTP real: invitado con carrito → `/checkout` redirige a login → tras el login vuelve al checkout prerrellenado → pedido con otra dirección (Valencia) → pago aprobado → pedido "Pendiente de preparación" con la dirección de Valencia, mientras la ficha del cliente conserva Madrid → carrito vacío → otro cliente recibe 404 al abrir la URL del pedido.
   - En base de datos: eventos `cart.item_added`, `checkout.started`, `order.created`, `payment.simulated` y `order.status_changed` registrados.
+
+### 2026-10-09 · Abel · Resolución del conflicto de la PR #4 con `main`
+- **Tarea:** fusionar `main` en `feature/cuentas-usuario`. Antonio había añadido variantes de producto por tamaño y un inventario de stock, y los dos habían reescrito el bucle del checkout en `OrderService.php`.
+- **Partes asistidas:** la IA resolvió el conflicto a petición de Abel, **combinando** las dos versiones en vez de elegir una:
+  - de Abel: transacción única, bloqueo previo, precios recalculados tras el bloqueo, `CheckoutException` y dirección histórica;
+  - de Antonio: precio y stock de la variante, y `product_variant_id` y `variant_size` en la línea.
+  - El bloqueo y la comprobación de stock de las variantes se movieron al paso de bloqueo inicial, junto a los productos, para comprobarlo todo antes de escribir nada.
+  - Se añadió una comprobación de que la variante pertenece al producto.
+  - El resto de archivos (vistas, rutas, seeder, `CartService`) se fusionaron automáticamente sin conflicto.
+- **Errores detectados:** la versión de `main` lanzaba `RuntimeException` dentro de la transacción; con la nueva gestión de errores se habría mostrado como un error 500 en vez de como un mensaje de stock. Se sustituyó por `CheckoutException`.
+- **Cambios del grupo:** —
+- **Validación:** `php artisan test` **19/19**, con 2 tests nuevos de variantes (precio y stock de la variante, y rollback sin stock de la variante). `migrate:fresh --seed` correcto con las migraciones de variantes.

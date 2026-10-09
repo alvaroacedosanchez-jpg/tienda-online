@@ -34,7 +34,19 @@
             <thead><tr><th>Producto</th><th>Uds.</th><th>Precio</th><th>Total</th></tr></thead>
             <tbody>
             @foreach ($order->items as $item)
-                <tr><td>{{ $item->product_name }}</td><td>{{ $item->quantity }}</td><td>{{ number_format($item->unit_price, 2, ',', '.') }} €</td><td>{{ number_format($item->line_total, 2, ',', '.') }} €</td></tr>
+                <tr>
+                    <td>
+                        {{ $item->product_name }}
+                        @if ($item->variant_size)
+                            <small class="muted">({{ $item->variant_size }})</small>
+                        @elseif ($item->variant)
+                            <small class="muted">({{ $item->variant->size }})</small>
+                        @endif
+                    </td>
+                    <td>{{ $item->quantity }}</td>
+                    <td>{{ number_format($item->unit_price, 2, ',', '.') }} €</td>
+                    <td>{{ number_format($item->line_total, 2, ',', '.') }} €</td>
+                </tr>
             @endforeach
             </tbody>
         </table>

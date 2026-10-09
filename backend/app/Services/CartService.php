@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Product;
+use App\Models\ProductVariant;
 use Illuminate\Support\Collection;
 
 /**
@@ -14,28 +15,64 @@ class CartService
     private const KEY = 'cart';
     private const CODE_KEY = 'cart_discount_code';
 
-    public function add(Product $product, int $quantity = 1): void
+    public function add(Product $product, int $quantity = 1, ?ProductVariant $variant = null): void
     {
         $cart = session(self::KEY, []);
-        $current = $cart[$product->id] ?? 0;
-        $cart[$product->id] = min($current + $quantity, $product->stock, 10);
+        
+        $itemKey = $this->generateKey($product->id, $variant?->id);
+        
+        $currentQuantity = isset($cart[$itemKey]) ? $cart[$itemKey]['quantity'] : 0;
+        
+        // Calculamos el stock disponible (usamos el de la variante si existe, si no, el del producto)
+        $stock = $variant ? $variant->stock : $product->stock;
+        
+        $cart[$itemKey] = [
+            'product_id' => $product->id,
+            'variant_id' => $variant?->id,
+            'quantity'   => min($currentQuantity + $quantity, $stock, 10)
+        ];
+        
         session([self::KEY => $cart]);
     }
 
-    public function set(Product $product, int $quantity): void
+    public function set(string $itemKey, int $quantity): void
     {
         $cart = session(self::KEY, []);
-        if ($quantity <= 0) {
-            unset($cart[$product->id]);
-        } else {
-            $cart[$product->id] = min($quantity, $product->stock, 10);
+        
+        if (!isset($cart[$itemKey])) {
+            return;
         }
+
+        if ($quantity <= 0) {
+            unset($cart[$itemKey]);
+        } else {
+            // Para validar el stock, necesitamos recuperar los modelos
+            $productId = $cart[$itemKey]['product_id'];
+            $variantId = $cart[$itemKey]['variant_id'];
+            
+            $product = Product::find($productId);
+            if (!$product) {
+                 unset($cart[$itemKey]);
+                 session([self::KEY => $cart]);
+                 return;
+            }
+            
+            $variant = $variantId ? ProductVariant::find($variantId) : null;
+            $stock = $variant ? $variant->stock : $product->stock;
+
+            $cart[$itemKey]['quantity'] = min($quantity, $stock, 10);
+        }
+        
         session([self::KEY => $cart]);
     }
 
-    public function remove(Product $product): void
+    public function remove(string $itemKey): void
     {
-        $this->set($product, 0);
+        $cart = session(self::KEY, []);
+        if (isset($cart[$itemKey])) {
+            unset($cart[$itemKey]);
+            session([self::KEY => $cart]);
+        }
     }
 
     public function clear(): void
@@ -50,10 +87,13 @@ class CartService
 
     public function count(): int
     {
-        return array_sum(session(self::KEY, []));
+        $cart = session(self::KEY, []);
+        return collect($cart)->sum('quantity');
     }
 
-    /** @return Collection<int, array{product: Product, quantity: int, line_total: float}> */
+    /** 
+     * @return Collection<string, array{product: Product, variant: ?ProductVariant, quantity: int, line_total: float}> 
+     */
     public function items(): Collection
     {
         $cart = session(self::KEY, []);
@@ -61,14 +101,27 @@ class CartService
             return collect();
         }
 
-        return Product::whereIn('id', array_keys($cart))
-            ->where('active', true)
-            ->get()
-            ->map(fn (Product $p) => [
-                'product' => $p,
-                'quantity' => $cart[$p->id],
-                'line_total' => round($p->price * $cart[$p->id], 2),
+        $items = collect();
+
+        foreach ($cart as $key => $item) {
+            $product = Product::where('id', $item['product_id'])->where('active', true)->first();
+            
+            if (!$product) {
+                continue;
+            }
+
+            $variant = $item['variant_id'] ? ProductVariant::find($item['variant_id']) : null;
+            $price = $variant ? $variant->price : $product->price;
+
+            $items->put($key, [
+                'product'    => $product,
+                'variant'    => $variant,
+                'quantity'   => $item['quantity'],
+                'line_total' => round($price * $item['quantity'], 2),
             ]);
+        }
+
+        return $items;
     }
 
     /** Devuelve true si el código es válido y lo guarda. */
@@ -120,13 +173,21 @@ class CartService
         $tax = round($total - $total / (1 + $rate), 2); // IVA incluido en el total
 
         return [
-            'subtotal' => $subtotal,
-            'discount' => $discount,
-            'discount_code' => $percent ? $code : null,
+            'subtotal'         => $subtotal,
+            'discount'         => $discount,
+            'discount_code'    => $percent ? $code : null,
             'discount_percent' => $percent,
-            'shipping' => $shipping,
-            'tax' => $tax,
-            'total' => $total,
+            'shipping'         => $shipping,
+            'tax'              => $tax,
+            'total'            => $total,
         ];
+    }
+    
+    /**
+     * Genera la clave única para el ítem en el carrito.
+     */
+    private function generateKey(int $productId, ?int $variantId = null): string
+    {
+        return $variantId ? "{$productId}_{$variantId}" : (string) $productId;
     }
 }
