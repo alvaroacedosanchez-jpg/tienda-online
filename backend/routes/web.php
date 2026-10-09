@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\CheckoutController;
+use App\Http\Controllers\LoginController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\ShopController;
@@ -35,6 +36,10 @@ Route::post('/soporte', [SupportController::class, 'store'])->name('support.stor
 // Cuentas de usuarios
 Route::get('/registro', [RegisterController::class, 'create'])->name('register.create');
 Route::post('/registro', [RegisterController::class, 'store'])->name('register.store');
+Route::get('/login', [LoginController::class, 'create'])->name('login');
+Route::post('/login', [LoginController::class, 'store'])->name('login.store');
+Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
+
 
 // Back-office
 Route::prefix('admin')->name('admin.')->group(function () {
