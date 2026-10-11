@@ -36,6 +36,10 @@
                             @if ($variant)
                                 <span class="badge">{{ $variant->size }}</span>
                             @endif
+                            {{-- Solo se avisa: la cantidad no se toca, el checkout lo rechazaría si no se corrige --}}
+                            @if ($item['quantity'] > $item['available'])
+                                <br><span class="small error">{{ $item['available'] <= 0 ? 'Agotado' : ($item['available'] === 1 ? 'Solo queda 1 unidad' : 'Solo quedan '.$item['available'].' unidades') }}</span>
+                            @endif
                         </span>
                     </div>
                 </td>
@@ -62,13 +66,14 @@
     </table>
 
     <div class="two-col">
-        <form method="POST" action="{{ route('cart.code') }}" class="card pad">
-            @csrf
-            <label for="code">Código de descuento</label>
-            <input type="text" id="code" name="code" value="{{ old('code', $code) }}" placeholder="BIENVENIDA10">
-            @error('code')<p class="error">{{ $message }}</p>@enderror
-            <button class="btn btn-small" type="submit">Aplicar</button>
-        </form>
+        <div class="card pad">
+            <p class="small muted">Los códigos de descuento se aplican en el checkout.</p>
+            @auth
+                <p class="small muted">Tu carrito se guarda en tu cuenta: lo encontrarás aunque cierres sesión.</p>
+            @else
+                <p class="small muted">Inicia sesión para guardar tu carrito y recuperarlo otro día.</p>
+            @endauth
+        </div>
 
         @include('partials.summary', ['summary' => $summary])
     </div>
