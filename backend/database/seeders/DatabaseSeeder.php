@@ -4,6 +4,8 @@ namespace Database\Seeders;
 
 use App\Models\Category;
 use App\Models\Customer;
+use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\User;
 use Illuminate\Database\Seeder;
@@ -16,32 +18,41 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        // Usuario de back-office de PRUEBA (documentado en el README)
+        // 1. Usuario de back-office de PRUEBA
         $admin = User::updateOrCreate(
             ['email' => 'admin@piquantum.test'],
-            ['name' => 'Administrador de prueba', 'password' => 'admin1234'],
+            ['name' => 'Administrador de prueba', 'password' => 'admin1234']
         );
         $admin->is_admin = true;
-        $admin->save(); 
+        $admin->save();
 
-        // Clientes de prueba: cada uno con su usuario para iniciar sesión
-        foreach ([
+        // 2. Clientes de prueba 
+        $customers = [];
+        $originalCustomers = [
             ['Laura Prueba', 'laura@example.com', 'Calle Ficticia 1', 'Madrid', '28001'],
             ['Carlos Demo', 'carlos@example.com', 'Avenida de Prueba 22', 'Sevilla', '41001'],
             ['Marta Test', 'marta@example.com', 'Plaza Inventada 5', 'Valencia', '46001'],
-        ] as [$name, $email, $address, $city, $zip]) {
+        ];
+
+        foreach ($originalCustomers as [$name, $email, $address, $city, $zip]) {
             $user = User::updateOrCreate(
                 ['email' => $email],
-                ['name' => $name, 'password' => 'cliente1234'],
+                ['name' => $name, 'password' => 'cliente1234']
             );
 
-            Customer::firstOrCreate(['email' => $email], [
+            $customer = Customer::firstOrCreate(['email' => $email], [
                 'user_id' => $user->id,
-                'name' => $name, 'address' => $address, 'city' => $city, 'postal_code' => $zip,
+                'name' => $name,
+                'address' => $address,
+                'city' => $city,
+                'postal_code' => $zip,
                 'phone' => '600000000',
             ]);
+
+            $customers[$email] = $customer;
         }
 
+        // 3. Categorías
         $categories = [
             'suaves' => ['Suaves', 'Mucho sabor y un picor amable para todos los públicos', '🌶️'],
             'picantes' => ['Picantes', 'Para quienes ya disfrutan del picante de verdad', '🔥'],
@@ -53,6 +64,7 @@ class DatabaseSeeder extends Seeder
             $cat[$slug] = Category::updateOrCreate(['slug' => $slug], ['name' => $name, 'description' => $desc]);
         }
 
+        // 4. Productos
         $products = [
             ['suaves', 'SAL-002', 'Salsa Chipotle Ahumado', 'Ahumada y ligeramente dulce, ideal para barbacoas.', 'Salsa de chile chipotle (jalapeño ahumado) con tomate asado, cebolla y un toque de panela. Perfecta para carnes a la brasa, tacos y hamburguesas.', 6.50, 60, '🌶️', ['Picor' => '5.000 SHU', 'Chile' => 'Chipotle', 'Formato' => '200 ml', 'Origen' => 'México']],
             ['suaves', 'SAL-003', 'Salsa Verde Jalapeño & Lima', 'Fresca y cítrica, para el día a día.', 'Salsa verde de jalapeño fresco, lima, cilantro y ajo. Aporta frescor a nachos, ensaladas, pescados y huevos.', 5.90, 80, '🍋', ['Picor' => '3.500 SHU', 'Chile' => 'Jalapeño', 'Formato' => '200 ml', 'Origen' => 'México']],
@@ -78,31 +90,30 @@ class DatabaseSeeder extends Seeder
                 'specs' => $specs,
                 'active' => true,
             ]);
-            
-            // 2. Asignar variantes explícitamente a los 2 SKUs
-            $chipotle = Product::where('sku', 'SAL-002')->first();
-            if ($chipotle) {
-                $chipotle->variants()->delete();
-                $chipotle->variants()->createMany([
-                    ['size' => '50 ml', 'price' => 4.50, 'stock' => 30],
-                    ['size' => '100 ml', 'price' => 6.50, 'stock' => 20],
-                    ['size' => '200 ml', 'price' => 9.90, 'stock' => 10],
-                ]);
-            }
-
-            $reaper = Product::where('sku', 'SAL-001')->first();
-            if ($reaper) {
-                $reaper->variants()->delete();
-                $reaper->variants()->createMany([
-                    ['size' => '50 ml', 'price' => 8.90, 'stock' => 15],
-                    ['size' => '100 ml', 'price' => 12.90, 'stock' => 10],
-                    ['size' => '200 ml', 'price' => 18.50, 'stock' => 5],
-                ]);
-            }
-
         }
 
-        // 3. Imágenes: ilustraciones generadas con `php artisan piquantum:product-images`
+        // 5. Variantes de productos
+        $chipotle = Product::where('sku', 'SAL-002')->first();
+        if ($chipotle) {
+            $chipotle->variants()->delete();
+            $chipotle->variants()->createMany([
+                ['size' => '50 ml', 'price' => 4.50, 'stock' => 30],
+                ['size' => '100 ml', 'price' => 6.50, 'stock' => 20],
+                ['size' => '200 ml', 'price' => 9.90, 'stock' => 10],
+            ]);
+        }
+
+        $reaper = Product::where('sku', 'SAL-001')->first();
+        if ($reaper) {
+            $reaper->variants()->delete();
+            $reaper->variants()->createMany([
+                ['size' => '50 ml', 'price' => 8.90, 'stock' => 15],
+                ['size' => '100 ml', 'price' => 12.90, 'stock' => 10],
+                ['size' => '200 ml', 'price' => 18.50, 'stock' => 5],
+            ]);
+        }
+
+        // 6. Asignar rutas de imágenes por defecto
         foreach (Product::with('variants')->get() as $product) {
             $product->update(['image' => $product->defaultImagePath()]);
             foreach ($product->variants as $variant) {
@@ -110,5 +121,138 @@ class DatabaseSeeder extends Seeder
             }
         }
 
+        // 7. Crear pedidos asociados 
+        $this->seedOrdersForCustomers($customers);
     }
+
+
+/**
+     * Genera pedidos de prueba para Laura, Carlos y Marta.
+     */
+    private function seedOrdersForCustomers(array $customers): void
+    {
+        $chipotle = Product::where('sku', 'SAL-002')->with('variants')->first();
+        $reaper = Product::where('sku', 'SAL-001')->with('variants')->first();
+        $sriracha = Product::where('sku', 'SAL-004')->first();
+        $habanero = Product::where('sku', 'SAL-005')->first();
+
+        $ordersData = [
+            [
+                'customer' => $customers['laura@example.com'],
+                'reference' => 'PED-2026-0001',
+                'status' => 'completed',
+                'created_at' => now()->subDays(7),
+                'items' => [
+                    [
+                        'product' => $chipotle,
+                        'variant' => $chipotle->variants->where('size', '100 ml')->first(),
+                        'quantity' => 2,
+                    ],
+                    [
+                        'product' => $sriracha,
+                        'variant' => null,
+                        'quantity' => 1,
+                    ],
+                ],
+            ],
+            [
+                'customer' => $customers['carlos@example.com'],
+                'reference' => 'PED-2026-0002',
+                'status' => 'pending',
+                'created_at' => now()->subDays(3),
+                'items' => [
+                    [
+                        'product' => $reaper,
+                        'variant' => $reaper->variants->where('size', '50 ml')->first(),
+                        'quantity' => 1,
+                    ],
+                    [
+                        'product' => $habanero,
+                        'variant' => null,
+                        'quantity' => 2,
+                    ],
+                ],
+            ],
+            [
+                'customer' => $customers['marta@example.com'],
+                'reference' => 'PED-2026-0003',
+                'status' => 'completed',
+                'created_at' => now()->subDays(1),
+                'items' => [
+                    [
+                        'product' => $chipotle,
+                        'variant' => $chipotle->variants->where('size', '200 ml')->first(),
+                        'quantity' => 3,
+                    ],
+                ],
+            ],
+            [
+                'customer' => $customers['laura@example.com'],
+                'reference' => 'PED-2026-0004',
+                'status' => 'processing',
+                'created_at' => now()->subHours(4),
+                'items' => [
+                    [
+                        'product' => $reaper,
+                        'variant' => $reaper->variants->where('size', '200 ml')->first(),
+                        'quantity' => 1,
+                    ],
+                    [
+                        'product' => $chipotle,
+                        'variant' => $chipotle->variants->where('size', '50 ml')->first(),
+                        'quantity' => 2,
+                    ],
+                ],
+            ],
+        ];
+
+        foreach ($ordersData as $oData) {
+            $customer = $oData['customer'];
+
+            $orderSubtotal = 0;
+            $itemsToCreate = [];
+
+            foreach ($oData['items'] as $itemData) {
+                $product = $itemData['product'];
+                $variant = $itemData['variant'];
+                $qty = $itemData['quantity'];
+
+                $price = $variant ? $variant->price : $product->price;
+                $lineTotal = $price * $qty;
+                $orderSubtotal += $lineTotal;
+
+                $itemsToCreate[] = [
+                    'product_id' => $product->id,
+                    'product_name' => $product->name,
+                    'product_variant_id' => $variant ? $variant->id : null,
+                    'variant_size' => $variant ? $variant->size : null,
+                    'unit_price' => $price,
+                    'quantity' => $qty,
+                    'line_total' => $lineTotal,
+                ];
+            }
+
+            $order = Order::updateOrCreate(
+                ['reference' => $oData['reference']],
+                [
+                    'customer_id' => $customer->id,
+                    'status' => $oData['status'],
+                    'subtotal' => $orderSubtotal,
+                    'total' => $orderSubtotal,
+                    'shipping_name' => $customer->name,
+                    'shipping_address' => $customer->address,
+                    'shipping_city' => $customer->city,
+                    'shipping_postal_code' => $customer->postal_code,
+                    'created_at' => $oData['created_at'],
+                    'updated_at' => $oData['created_at'],
+                ]
+            );
+
+            $order->items()->delete();
+            foreach ($itemsToCreate as $item) {
+                $order->items()->create($item);
+            }
+        }
+    }
+
 }
