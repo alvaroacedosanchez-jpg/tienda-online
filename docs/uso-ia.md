@@ -288,3 +288,33 @@ Plantilla para cada entrada:
   - `php artisan test` **75/75** (65 + 10 nuevos): firma falsa, importe distinto y pedido desconocido rechazados; notificación duplicada procesada una sola vez; rechazo `0190`; retorno firmado y sin firmar; acceso de otros usuarios y del admin.
   - **Prueba real contra el TPV de pruebas de Redsys:** el formulario firmado se envió a `sis-t.redsys.es` y Redsys mostró su página de pago con "Importe 10,85 € · Comercio: Piquantum (prototipo) · Terminal 999008881-1 · Pedido 261011000002 · Descripción: Pedido PQ-…".
   - **Pendiente:** que Abel complete un pago en el navegador con una tarjeta de pruebas de Redsys.
+
+### 2026-10-11 · Abel · Correos con la cuenta de DonDominio (rama `feature/correos`)
+- **Tarea:** enviar correos en determinados eventos usando la cuenta de correo del hosting de DonDominio.
+- **Instrucciones y decisiones de Abel (no de la IA):**
+  - Eventos: bienvenida al registrarse, pedido pagado con la factura adjunta, pedido enviado y solicitud de soporte (aviso a la tienda y acuse al cliente).
+  - Se envían al correo real del cliente; riesgo aceptado y documentado.
+  - Envío inmediato, sin colas.
+  - Lo programa la IA, con un plan aprobado antes.
+- **Partes asistidas:** la IA escribió entero este paso:
+  - 5 *Mailables* en `app/Mail` con plantillas Markdown en español y el aviso de prototipo;
+  - cabecera y pie del correo personalizados con el nombre de la tienda (`resources/views/vendor/mail/*/message.blade.php`);
+  - servicio `ShopMailer` (único punto de envío, con `DB::afterCommit` y `try/catch` con log);
+  - `Invoice::pdf()`, que reutilizan la descarga y el adjunto;
+  - envíos conectados en el registro, `OrderService::markPaid()` (Redsys y transferencia), `OrderService::changeStatus()` (estado "enviado") y el formulario de soporte;
+  - `SHOP_NOTIFY_EMAIL` en `config/shop.php`; configuración SMTP de DonDominio comentada en `.env.example`;
+  - 8 tests en `tests/Feature/EmailTest.php`; README.
+- **Errores detectados en la IA:**
+  - El bucle que generaba los *Mailables* con Artisan no separaba los argumentos en zsh y creó archivos con nombres incorrectos; se borraron (eran carpetas nuevas) y se escribieron a mano.
+  - El primer test del adjunto comparaba el PDF byte a byte, pero dompdf incluye una fecha interna distinta en cada generación; ahora se comprueban el nombre y el tipo del adjunto, y por separado que el contenido es un PDF.
+  - En la revisión visual, el correo mostraba el logo y el pie de Laravel (por `APP_NAME=Laravel` en el `.env` local); se personalizaron la cabecera y el pie con el nombre de la tienda.
+- **Cambios del grupo:** decisiones indicadas arriba.
+- **Validación:**
+  - `php artisan test` **83/83** (75 + 8 nuevos). Se comprueba:
+    - el destinatario de cada evento;
+    - la factura adjunta;
+    - que no hay correo de pago si Redsys rechaza el pago **ni si la transacción se revierte**;
+    - que un fallo simulado del SMTP no impide el pago;
+    - el `replyTo` del aviso de soporte.
+  - Revisión visual de los correos renderizados (pedido pagado, bienvenida y soporte) con capturas de Chrome.
+  - **Pendiente:** prueba real con el SMTP de DonDominio cuando Abel ponga sus credenciales en su `.env`.
