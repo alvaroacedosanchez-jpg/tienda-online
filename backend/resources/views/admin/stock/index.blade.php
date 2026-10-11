@@ -3,7 +3,9 @@
 @section('content')
 <h1>Control de Stock e Inventario</h1>
 @include('partials.admin-nav')
-    
+<a href="{{ route('admin.stock.receive') }}" class="btn btn-primary" style="margin-bottom: 1rem;">
+📦 Escanear / Recibir Mercancía
+</a>
 <div class="card pad">
     <table class="table">
         <thead>

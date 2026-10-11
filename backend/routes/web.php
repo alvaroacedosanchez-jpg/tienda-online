@@ -73,6 +73,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('/logout', [Admin\AuthController::class, 'logout'])->name('logout');
         Route::get('/', [AdminDashboardController::class, 'index'])->name('dashboard');
         Route::get('/clientes', [AdminCustomerController::class, 'index'])->name('customers.index');
+        Route::get('/stock/recepcion', [AdminStockController::class, 'receiveForm'])->name('stock.receive');
+        Route::post('/stock/recepcion', [AdminStockController::class, 'processReceive'])->name('stock.receive.process');
         Route::get('/pedidos/{order}/etiqueta', [Admin\OrderController::class, 'shippingLabel'])->name('orders.label');
         Route::get('/pedidos', [Admin\OrderController::class, 'index'])->name('orders.index');
         Route::get('/pedidos/{order}', [Admin\OrderController::class, 'show'])->name('orders.show');
