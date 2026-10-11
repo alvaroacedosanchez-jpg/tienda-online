@@ -189,7 +189,7 @@ class DatabaseSeeder extends Seeder
             [
                 'customer' => $customers['laura@example.com'],
                 'reference' => 'PED-2026-0004',
-                'status' => 'processing',
+                'status' => 'pending',
                 'created_at' => now()->subHours(4),
                 'items' => [
                     [
