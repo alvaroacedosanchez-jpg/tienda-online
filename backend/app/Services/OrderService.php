@@ -17,6 +17,7 @@ class OrderService
     public function __construct(
         private CartService $cart,
         private EventLogger $events,
+        private ShopMailer $mailer,
     ) {}
 
     /**
@@ -166,6 +167,9 @@ class OrderService
 
         $this->changeStatus($order, Order::PENDING_PREPARATION, $origin);
 
+        // Correo al cliente con la factura (sale cuando se confirme la transacción del pago)
+        $this->mailer->orderPaid($order);
+
         return $invoice;
     }
 
@@ -189,6 +193,10 @@ class OrderService
                 }
             }
             $order->update(['status' => $newStatus]);
+
+            if ($newStatus === Order::SHIPPED) {
+                $this->mailer->orderShipped($order); // sale cuando se confirme la transacción
+            }
 
             $this->events->log(EventLogger::ORDER_STATUS_CHANGED, [
                 'reference' => $order->reference,

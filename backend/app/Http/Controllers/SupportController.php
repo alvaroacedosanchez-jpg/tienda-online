@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Order;
 use App\Models\SupportTicket;
 use App\Services\EventLogger;
+use App\Services\ShopMailer;
 use Illuminate\Http\Request;
 
 class SupportController extends Controller
@@ -14,7 +15,7 @@ class SupportController extends Controller
         return view('support.create', ['reference' => $request->query('pedido')]);
     }
 
-    public function store(Request $request, EventLogger $events)
+    public function store(Request $request, EventLogger $events, ShopMailer $mailer)
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:100'],
@@ -45,6 +46,9 @@ class SupportController extends Controller
             'subject' => $ticket->subject,
             'order_reference' => $order?->reference,
         ], $order?->id);
+
+        // Acuse de recibo al cliente y aviso a la tienda
+        $mailer->supportRequested($ticket);
 
         return redirect()->route('support.create')->with('status', 'Solicitud enviada. Número de ticket: #'.$ticket->id);
     }
