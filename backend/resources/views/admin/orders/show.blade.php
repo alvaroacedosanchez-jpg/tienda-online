@@ -66,7 +66,7 @@
         ]])
         <h2>Pagos simulados</h2>
         @forelse ($order->payments as $payment)
-            <p class="small">{{ $payment->reference }} · {{ $payment->method }} · {{ $payment->status }} · {{ number_format($payment->amount, 2, ',', '.') }} €{{ $payment->card_last4 ? ' · ****'.$payment->card_last4 : '' }}</p>
+            <p class="small">{{ $payment->reference }} · {{ $payment->methodLabel() }} · {{ $payment->statusLabel() }} · {{ number_format($payment->amount, 2, ',', '.') }} €{{ $payment->card_last4 ? ' · ****'.$payment->card_last4 : '' }}@if ($payment->gateway_order)<br><span class="muted">Redsys: pedido {{ $payment->gateway_order }}{{ $payment->response_code ? ' · respuesta '.$payment->response_code : '' }}{{ $payment->authorisation_code ? ' · autorización '.$payment->authorisation_code : '' }}</span>@endif</p>
         @empty
             <p class="muted">Sin pagos.</p>
         @endforelse

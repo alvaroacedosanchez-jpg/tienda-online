@@ -261,3 +261,30 @@ Plantilla para cada entrada:
     - al bajar el stock del tamaño aparece el aviso;
     - `BIENVENIDA10` se aplica en el checkout;
     - el pedido sale con el descuento y `cart_items` queda vacío.
+
+### 2026-10-11 · Abel · TPV Virtual de Redsys en entorno de pruebas (rama `feature/tpv-redsys`)
+- **Tarea:** integrar el TPV Virtual de Redsys con la librería oficial que Abel descargó (`9999_redsys-lib-php-2.0.1-con-ejemplos`), siguiendo su guía de integración.
+- **Instrucciones y decisiones de Abel (no de la IA):**
+  - Redsys **sustituye a la tarjeta simulada**; la transferencia simulada se mantiene.
+  - `REDSYS_API_KEY` en `.env` y en `.env.example` (clave pública de pruebas de Redsys).
+  - Solo se copia la librería; la carpeta descargada (con el PDF, cuya reproducción prohíbe Redsys) va al `.gitignore`.
+  - Lo programa la IA, con un plan aprobado antes.
+- **Partes asistidas:** la IA leyó la guía (texto extraído del PDF) y los ejemplos, y escribió entero este paso:
+  - librería copiada en `backend/packages/redsys-lib` e instalada con Composer (repositorio `path`, versión fijada 2.0.1); `config/services.php`, `.env`/`.env.example` y `phpunit.xml`;
+  - migración `add_gateway_fields_to_payments_table` (`gateway_order`, `response_code`, `authorisation_code`, `gateway_response`); constantes y etiquetas en `Payment`;
+  - `RedsysGateway::start()` (pago `pending` + formulario firmado) y `RedsysGateway::settle()` (verificación de firma con `Parameters::digest`, comprobación de importe, transacción con bloqueo, idempotencia y evento `payment.simulated` con `gateway=redsys`);
+  - `OrderService::markPaid()`, que extrae la secuencia "pagado → factura → pendiente de preparación" que comparten la transferencia y Redsys; `PaymentSimulator` queda solo para la transferencia;
+  - `RedsysController` (notificación sin CSRF, y retorno `urlOk`/`urlKo` que procesa la respuesta firmada, necesario en local) y la vista de redirección;
+  - página de pago (Redsys / transferencia), y método, código de autorización y tarjeta enmascarada en las páginas de pedido;
+  - 10 tests nuevos en `tests/Feature/RedsysPaymentTest.php` y el helper `tests/Concerns/FakesRedsys.php`, que firma respuestas con la propia librería. Se adaptaron los tests que usaban la tarjeta simulada.
+- **Errores detectados en la IA:**
+  - Al instalar con Composer, la librería quedó con el **nombre de la rama como versión** (`dev-feature/tpv-redsys`), lo que habría roto el lock al borrar la rama. Se fijó la versión 2.0.1.
+  - El script reformateó `keywords` en `composer.json`; se restauró.
+- **Observaciones:**
+  - La guía indica que el resultado definitivo llega por la notificación y que no hay que fiarse de la `urlOk`. Como en local Redsys no puede notificar a `localhost`, se procesa también la respuesta **firmada** del retorno, de forma idempotente.
+  - El número de pedido de Redsys debe tener entre 4 y 12 caracteres y empezar por 4 dígitos, por eso no se usa la referencia `PQ-…`.
+- **Cambios del grupo:** decisiones indicadas arriba.
+- **Validación:**
+  - `php artisan test` **75/75** (65 + 10 nuevos): firma falsa, importe distinto y pedido desconocido rechazados; notificación duplicada procesada una sola vez; rechazo `0190`; retorno firmado y sin firmar; acceso de otros usuarios y del admin.
+  - **Prueba real contra el TPV de pruebas de Redsys:** el formulario firmado se envió a `sis-t.redsys.es` y Redsys mostró su página de pago con "Importe 10,85 € · Comercio: Piquantum (prototipo) · Terminal 999008881-1 · Pedido 261011000002 · Descripción: Pedido PQ-…".
+  - **Pendiente:** que Abel complete un pago en el navegador con una tarjeta de pruebas de Redsys.

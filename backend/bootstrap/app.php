@@ -18,6 +18,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin' => EnsureAdmin::class,
             'customer' => EnsureCustomer::class,
         ]);
+
+        // La notificación de Redsys llega desde su servidor (sin token CSRF): se valida por su firma
+        $middleware->validateCsrfTokens(except: ['pagos/redsys/notificacion']);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

@@ -1,0 +1,14 @@
+{
+    "name": "redsys/redsys-lib",
+    "description": "PHP library to integrate easily with Redsys",
+    "type": "library",
+    "version": "2.0.1",
+    "autoload": {
+        "psr-4": {
+            "Redsys\\": "src/"
+        }
+    },
+    "require": {
+        "php": ">=7.4"
+    }
+}

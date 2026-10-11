@@ -35,4 +35,11 @@ return [
         ],
     ],
 
+    // TPV Virtual de Redsys. El API Key identifica comercio, terminal, clave de firma y
+    // entorno (TEST/PROD): es tan sensible como la clave de firma y solo se lee del .env.
+    'redsys' => [
+        'api_key' => env('REDSYS_API_KEY'),
+        'merchant_name' => env('REDSYS_MERCHANT_NAME', 'Piquantum (prototipo)'),
+    ],
+
 ];

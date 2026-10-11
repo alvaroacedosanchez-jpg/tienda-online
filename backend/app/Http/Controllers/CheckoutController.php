@@ -4,10 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Exceptions\CheckoutException;
 use App\Models\Order;
+use App\Models\Payment;
 use App\Services\CartService;
 use App\Services\EventLogger;
 use App\Services\OrderService;
 use App\Services\PaymentSimulator;
+use App\Services\RedsysGateway;
 use Illuminate\Http\Request;
 
 class CheckoutController extends Controller
@@ -89,35 +91,31 @@ class CheckoutController extends Controller
         return view('checkout.pay', ['order' => $order->load('items')]);
     }
 
-    /** Paso 4 · Cobra el pedido: pago, factura y cambios de estado en una transacción. */
-    public function pay(Request $request, Order $order, PaymentSimulator $simulator)
+    /** Paso 4 · Cobra el pedido: con tarjeta redirige al TPV de Redsys; con transferencia simulada, pago, factura y estados en una transacción. */
+    public function pay(Request $request, Order $order, PaymentSimulator $simulator, RedsysGateway $redsys)
     {
         abort_unless($order->isOwnedBy($request->user()), 404);
         abort_unless($order->status === Order::CREATED, 404);
 
         $data = $request->validate([
-            'method' => ['required', 'in:card,transfer'],
-            'card_number' => ['required_if:method,card', 'nullable', 'regex:/^[0-9 ]{13,23}$/'],
-            'card_expiry' => ['required_if:method,card', 'nullable', 'regex:/^(0[1-9]|1[0-2])\/[0-9]{2}$/'],
-            'card_cvv' => ['required_if:method,card', 'nullable', 'digits_between:3,4'],
+            'method' => ['required', 'in:'.Payment::METHOD_REDSYS.','.Payment::METHOD_TRANSFER],
         ], [
-            'card_number.regex' => 'Número de tarjeta no válido.',
-            'card_expiry.regex' => 'Usa el formato MM/AA.',
+            'method.required' => 'Elige un método de pago.',
+            'method.in' => 'El método de pago no es válido.',
         ]);
 
-        // El número de tarjeta solo se usa en esta llamada; no se guarda (solo los 4 últimos dígitos).
         try {
-            $payment = $simulator->pay($order, $data['method'], $data['card_number'] ?? null);
+            // Tarjeta: el cliente paga en el TPV de Redsys (entorno de pruebas); la tarjeta nunca pasa por la tienda
+            if ($data['method'] === Payment::METHOD_REDSYS) {
+                return view('checkout.redsys-redirect', $redsys->start($order) + ['order' => $order]);
+            }
+
+            $simulator->pay($order);
         } catch (CheckoutException $e) {
             // Otra petición ha pagado el pedido mientras tanto
             return redirect()->route('orders.show', $order)->withErrors(['cart' => $e->getMessage()]);
         }
 
-        if ($payment->status === 'declined') {
-            return redirect()->route('orders.pay', $order)
-                ->withErrors(['payment' => 'Pago rechazado (simulado). Prueba con otra tarjeta de prueba o contacta con soporte.']);
-        }
-
-        return redirect()->route('orders.show', $order)->with('status', 'Pago simulado aprobado. ¡Pedido registrado!');
+        return redirect()->route('orders.show', $order)->with('status', 'Transferencia simulada registrada. ¡Pedido registrado!');
     }
 }

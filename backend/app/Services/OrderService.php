@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Exceptions\CheckoutException;
 use App\Models\Customer;
+use App\Models\Invoice;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\ProductVariant;
@@ -145,6 +146,27 @@ class OrderService
         });
 
         return $order;
+    }
+
+    /**
+     * Pedido cobrado: pagado → factura → pendiente de preparación.
+     * Se llama dentro de la transacción del pago (transferencia simulada o Redsys), con el pedido bloqueado:
+     * si falla la factura, se revierte también el pago.
+     */
+    public function markPaid(Order $order, string $origin = 'payment'): Invoice
+    {
+        $this->changeStatus($order, Order::PAID, $origin);
+
+        $invoice = Invoice::issueFor($order);
+        $this->events->log(EventLogger::INVOICE_ISSUED, [
+            'reference' => $order->reference,
+            'invoice_number' => $invoice->number,
+            'total' => (float) $invoice->total,
+        ], $order->id);
+
+        $this->changeStatus($order, Order::PENDING_PREPARATION, $origin);
+
+        return $invoice;
     }
 
     /** Cambia el estado, registra el evento y devuelve stock si se cancela. */

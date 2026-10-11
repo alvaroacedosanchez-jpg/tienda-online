@@ -149,3 +149,9 @@ vite.config.ts.timestamp-*
 .turbo
 
 claude.md
+# Descarga original de Redsys (guía PDF con derechos de Redsys y ejemplos): no se sube.
+# La librería se usa desde backend/packages/redsys-lib.
+/9999_redsys-lib-php-2.0.1-con-ejemplos/
+
+# Archivos de macOS
+.DS_Store
