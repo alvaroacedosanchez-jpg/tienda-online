@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use Barryvdh\DomPDF\Facade\Pdf;
+use Barryvdh\DomPDF\PDF as DomPDF;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -29,6 +31,17 @@ class Invoice extends Model
     public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class);
+    }
+
+    /** PDF de la factura (se usa en la descarga de "Mis facturas" y como adjunto del correo). */
+    public function pdf(): DomPDF
+    {
+        $this->loadMissing('order.items');
+
+        return Pdf::loadView('invoices.pdf', [
+            'invoice' => $this,
+            'company' => config('shop.company'),
+        ])->setOption('isFontSubsettingEnabled', true); // incrusta solo las letras usadas: PDF mucho más ligero
     }
 
     /**
