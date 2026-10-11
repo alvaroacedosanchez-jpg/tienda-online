@@ -50,11 +50,23 @@
                         @if (!empty($item['variant']))
                             <small class="muted">({{ $item['variant']->size }})</small>
                         @endif
+                        @if ($item['quantity'] > $item['available'])
+                            <small class="error">{{ $item['available'] <= 0 ? '· agotado' : ($item['available'] === 1 ? '· solo queda 1' : '· solo quedan '.$item['available']) }}</small>
+                        @endif
                         <span class="right">{{ number_format($item['line_total'], 2, ',', '.') }} €</span>
                     </li>
                 @endforeach
             </ul>
         </div>
+
+        <form method="POST" action="{{ route('checkout.code') }}" class="card pad mt">
+            @csrf
+            <label for="code">Código de descuento</label>
+            <input type="text" id="code" name="code" value="{{ old('code', $summary['discount_code']) }}" placeholder="BIENVENIDA10">
+            @error('code')<p class="error">{{ $message }}</p>@enderror
+            <button class="btn btn-small" type="submit">Aplicar</button>
+        </form>
+
         @include('partials.summary', ['summary' => $summary])
     </div>
 </div>
