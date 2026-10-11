@@ -23,7 +23,7 @@ class AuthController extends Controller
         if (Auth::attempt($credentials) && Auth::user()->is_admin) {
             $request->session()->regenerate();
 
-            return redirect()->route('admin.orders.index');
+            return redirect()->route('admin.dashboard');
         }
 
         Auth::logout();

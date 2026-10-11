@@ -32,7 +32,7 @@ class LoginController extends Controller
             if (Auth::user()->is_admin) {
                 $request->session()->forget('url.intended');
 
-                return redirect()->route('admin.orders.index');
+                return redirect()->route('admin.dashboard')->with('status', 'Bienvenido/a, '.Auth::user()->name.'.');
             }
 
             return redirect()->intended(route('home'))->with('status', 'Bienvenido/a, '.Auth::user()->name.'.');

@@ -1,4 +1,5 @@
 <nav class="filters" aria-label="Back-office">
+    <a class="chip" href="{{ route('admin.dashboard') }}">Dashboard</a>
     <a class="chip" href="{{ route('admin.orders.index') }}">Pedidos</a>
     <a class="chip" href="{{ route('admin.stock.index') }}">Stock</a>
     <a class="chip" href="{{ route('admin.events.index') }}">Eventos</a>

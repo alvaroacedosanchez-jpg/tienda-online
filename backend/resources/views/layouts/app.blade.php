@@ -19,7 +19,7 @@
             <a href="{{ route('support.create') }}">Soporte</a>
             {{-- El administrador no compra: sin carrito ni "Mi cuenta", solo el back-office --}}
             @if (auth()->user()?->is_admin)
-                <a href="{{ route('admin.orders.index') }}">Back-office</a>
+                <a href="{{ route('admin.dashboard') }}">Back-office</a>
             @else
                 <a href="{{ route('cart.show') }}">Carrito ({{ app(\App\Services\CartService::class)->count() }})</a>
             @endif

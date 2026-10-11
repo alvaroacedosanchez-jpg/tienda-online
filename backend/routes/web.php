@@ -11,6 +11,8 @@ use App\Http\Controllers\OrderController;
 use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\ShopController;
 use App\Http\Controllers\SupportController;
+use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
+
 use Illuminate\Support\Facades\Route;
 
 // Tienda
@@ -68,6 +70,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
     Route::middleware('admin')->group(function () {
         Route::post('/logout', [Admin\AuthController::class, 'logout'])->name('logout');
+        Route::get('/', [AdminDashboardController::class, 'index'])->name('dashboard');
         Route::get('/pedidos', [Admin\OrderController::class, 'index'])->name('orders.index');
         Route::get('/pedidos/{order}', [Admin\OrderController::class, 'show'])->name('orders.show');
         Route::patch('/pedidos/{order}/estado', [Admin\OrderController::class, 'updateStatus'])->name('orders.status');

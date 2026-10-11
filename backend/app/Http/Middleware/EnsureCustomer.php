@@ -15,7 +15,7 @@ class EnsureCustomer
     public function handle(Request $request, Closure $next): Response
     {
         if ($request->user()?->is_admin) {
-            return redirect()->route('admin.orders.index')
+            return redirect()->route('admin.dashboard')
                 ->with('status', 'La cuenta de administrador no puede hacer pedidos ni usar el área de cliente.');
         }
 
