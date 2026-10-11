@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\EventLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -12,7 +13,7 @@ class LoginController extends Controller
         return view('auth.login');
     }
 
-    public function store(Request $request)
+    public function store(Request $request, EventLogger $events)
     {
         // Validamos el formato de los datos
         $data = $request->validate([
@@ -24,6 +25,9 @@ class LoginController extends Controller
             'password.required' => 'Indica tu contraseña.',
         ]);
 
+        // Guardamos el id de sesión de invitado antes de regenerarlo, para adoptar sus eventos
+        $guestSessionId = $request->session()->getId();
+
         // Comprobamos credenciales: si son correctas, Auth::attempt inicia la sesión
         if (Auth::attempt($data)) {
             $request->session()->regenerate();
@@ -34,6 +38,9 @@ class LoginController extends Controller
 
                 return redirect()->route('admin.dashboard')->with('status', 'Bienvenido/a, '.Auth::user()->name.'.');
             }
+
+            // Lo que hizo como invitado en esta visita (productos vistos, carrito...) pasa a ser suyo
+            $events->adoptGuestEvents($guestSessionId, Auth::user());
 
             return redirect()->intended(route('home'))->with('status', 'Bienvenido/a, '.Auth::user()->name.'.');
         }

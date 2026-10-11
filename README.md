@@ -36,12 +36,17 @@ Dependencia añadida: `barryvdh/laravel-dompdf`, para generar las facturas en PD
 
 ## Eventos
 
-Se guardan en la tabla `events` (`type`, `occurred_at`, `session_id`, `order_id`, `payload` JSON) mediante `EventLogger`.
+Se guardan en la tabla `events` (`type`, `occurred_at`, `session_id`, `user_id`, `order_id`, `payload` JSON) mediante `EventLogger`.
+
+- `user_id`: usuario que provocó el evento. Es el cliente conectado, el administrador en los cambios hechos desde el back-office o `null` si era un invitado. Al iniciar sesión o registrarse, los eventos que el visitante hizo como invitado **en esa misma visita** pasan a tener su `user_id`; los de otras visitas quedan anónimos.
+- `user_id` es un dato personal (identifica a un cliente). Se guarda para poder analizar el comportamiento por cliente en la Tarea 2, por ejemplo carritos abandonados. Los eventos no guardan nombre, correo ni dirección.
 
 | Evento | Se genera cuando |
 |---|---|
 | `product.viewed` | se abre una ficha de producto |
-| `cart.item_added` | se añade un producto al carrito |
+| `cart.item_added` | se añade un producto al carrito (`quantity` = unidades que entraron, `requested_quantity` = las pedidas) |
+| `cart.item_updated` | se cambia la cantidad de una línea del carrito (`from` → `to`) |
+| `cart.item_removed` | se quita una línea del carrito (o se pone a 0) |
 | `checkout.started` | se entra en el checkout |
 | `order.created` | se crea el pedido |
 | `payment.simulated` | se intenta un pago simulado (aprobado o rechazado) |

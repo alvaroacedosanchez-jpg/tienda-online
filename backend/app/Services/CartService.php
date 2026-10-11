@@ -15,7 +15,11 @@ class CartService
     private const KEY = 'cart';
     private const CODE_KEY = 'cart_discount_code';
 
-    public function add(Product $product, int $quantity = 1, ?ProductVariant $variant = null): void
+    /**
+     * Añade unidades al carrito, limitadas al stock disponible y a 10 por línea.
+     * Devuelve las unidades que se han añadido de verdad (pueden ser menos de las pedidas).
+     */
+    public function add(Product $product, int $quantity = 1, ?ProductVariant $variant = null): int
     {
         $cart = session(self::KEY, []);
         
@@ -31,8 +35,20 @@ class CartService
             'variant_id' => $variant?->id,
             'quantity'   => min($currentQuantity + $quantity, $stock, 10)
         ];
-        
+
         session([self::KEY => $cart]);
+
+        return max(0, $cart[$itemKey]['quantity'] - $currentQuantity);
+    }
+
+    /**
+     * Línea del carrito por su clave, o null si no existe.
+     *
+     * @return array{product_id: int, variant_id: ?int, quantity: int}|null
+     */
+    public function line(string $itemKey): ?array
+    {
+        return session(self::KEY, [])[$itemKey] ?? null;
     }
 
     public function set(string $itemKey, int $quantity): void
