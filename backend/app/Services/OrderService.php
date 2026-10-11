@@ -21,9 +21,9 @@ class OrderService
     /**
      * Crea el pedido del usuario a partir del carrito (Order-to-Cash).
      *
-     * Todo ocurre en una única transacción: ficha de cliente, pedido, líneas, stock
-     * y evento order.created. Si cualquier paso falla, no se guarda nada y el
-     * carrito se conserva para poder reintentar.
+     * Todo ocurre en una única transacción: ficha de cliente, pedido, líneas, stock,
+     * evento order.created y vaciado del carrito. Si cualquier paso falla, no se guarda
+     * nada y el carrito se conserva para poder reintentar.
      *
      * @param  array{name: string, phone: ?string, address: string, city: string, postal_code: string}  $shipping
      *
@@ -137,11 +137,12 @@ class OrderService
                 'discount_code' => $order->discount_code,
             ], $order->id);
 
+            // 7. Vaciar el carrito: el del cliente está en la base de datos, así que se vacía en la
+            //    misma transacción (si algo falla antes, el carrito se conserva para reintentar)
+            $this->cart->clear();
+
             return $order;
         });
-
-        // El carrito vive en la sesión (no en la base de datos): se vacía solo si la transacción se ha confirmado
-        $this->cart->clear();
 
         return $order;
     }

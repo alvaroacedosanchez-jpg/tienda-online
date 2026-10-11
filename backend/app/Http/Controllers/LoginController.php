@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\CartService;
 use App\Services\EventLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -13,7 +14,7 @@ class LoginController extends Controller
         return view('auth.login');
     }
 
-    public function store(Request $request, EventLogger $events)
+    public function store(Request $request, EventLogger $events, CartService $cart)
     {
         // Validamos el formato de los datos
         $data = $request->validate([
@@ -41,6 +42,8 @@ class LoginController extends Controller
 
             // Lo que hizo como invitado en esta visita (productos vistos, carrito...) pasa a ser suyo
             $events->adoptGuestEvents($guestSessionId, Auth::user());
+            // El carrito que llenó como invitado se suma al que tenía guardado
+            $cart->mergeGuestCart();
 
             return redirect()->intended(route('home'))->with('status', 'Bienvenido/a, '.Auth::user()->name.'.');
         }
