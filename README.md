@@ -69,6 +69,23 @@ Configuración: `REDSYS_API_KEY` en `.env`. La de `.env.example` es la clave **p
 
 Dependencia añadida: librería PHP oficial de Redsys. Evita implementar a mano la firma, la codificación y los endpoints del TPV. La guía PDF y los ejemplos descargados de Redsys no se suben al repositorio (`.gitignore`).
 
+## Correos
+
+La tienda envía correos por **SMTP con la cuenta de correo del hosting (DonDominio)**. Todo pasa por `app/Services/ShopMailer.php`; los correos están en `app/Mail` y sus plantillas en `resources/views/mail`.
+
+| Evento | Destinatario | Correo |
+|---|---|---|
+| Registro | cliente | Bienvenida |
+| Pago aprobado (Redsys o transferencia) | cliente | Resumen del pedido con la **factura PDF adjunta** |
+| El back-office marca el pedido como enviado | cliente | Pedido en camino |
+| Solicitud de soporte | cliente + tienda (`SHOP_NOTIFY_EMAIL`) | Acuse de recibo, y aviso interno con "responder a" el cliente |
+
+- Los correos se envían **después de confirmar la transacción** (`DB::afterCommit`): nunca se avisa de un pago que luego se ha revertido.
+- Si el SMTP falla, el error queda en el log y **el registro, el pago o el pedido no se ven afectados**.
+- **Local:** `MAIL_MAILER=log` (los correos se escriben en `storage/logs/laravel.log`).
+- **Hosting:** `MAIL_MAILER=smtp` con el servidor, puerto, usuario y contraseña que indica el panel de DonDominio. `MAIL_FROM_ADDRESS` debe ser **la misma cuenta**, para que SPF y DKIM del dominio validen el correo y no acabe en spam. La contraseña solo va en el `.env` del servidor.
+- ⚠️ Los correos se envían a la dirección que el cliente indica al registrarse. Como es un prototipo académico, conviene usar direcciones propias o de prueba: si alguien se registra con un correo ajeno, le llegarán correos.
+
 ## Instalación local
 
 Requisitos: PHP 8.3+ (ver nota de versión), Composer y MariaDB/MySQL (`docker compose up -d` levanta una MariaDB).

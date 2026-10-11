@@ -10,6 +10,9 @@ return [
     'shipping_cost' => 4.95,
     'free_shipping_from' => 60.00,
 
+    // Buzón de la tienda que recibe los avisos internos (p. ej. nuevas solicitudes de soporte)
+    'notify_email' => env('SHOP_NOTIFY_EMAIL', env('MAIL_FROM_ADDRESS')),
+
     // Datos de la empresa FICTICIA que aparecen en las facturas (prototipo académico)
     'company' => [
         'legal_name' => 'Piquantum Salsas S.L. (empresa ficticia)',

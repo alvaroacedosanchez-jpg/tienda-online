@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Invoice;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 
 class InvoiceController extends Controller
@@ -23,13 +22,6 @@ class InvoiceController extends Controller
         // Solo el dueño del pedido. 404 y no 403: no revelamos que la factura existe.
         abort_unless($invoice->order->isOwnedBy($request->user()), 404);
 
-        $invoice->load('order.items');
-
-        return Pdf::loadView('invoices.pdf', [
-            'invoice' => $invoice,
-            'company' => config('shop.company'),
-        ])
-            ->setOption('isFontSubsettingEnabled', true) // incrusta solo las letras usadas: PDF mucho más ligero
-            ->download($invoice->number.'.pdf');
+        return $invoice->pdf()->download($invoice->number.'.pdf');
     }
 }
