@@ -39,6 +39,12 @@ class User extends Authenticatable
         return $this->hasOne(Customer::class);
     }
 
+    /** Carrito guardado del usuario (persiste entre sesiones). */
+    public function cart(): HasOne
+    {
+        return $this->hasOne(Cart::class);
+    }
+
     /** Pedidos del usuario, a través de su ficha de cliente (users → customers → orders). */
     public function orders(): HasManyThrough
     {

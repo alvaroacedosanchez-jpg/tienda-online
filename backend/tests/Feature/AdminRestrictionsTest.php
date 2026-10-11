@@ -38,7 +38,7 @@ class AdminRestrictionsTest extends TestCase
     public function test_admin_cannot_use_cart_checkout_or_account_area(): void
     {
         $this->actingAs($this->admin());
-        $product = Product::first();
+        $product = Product::doesntHave('variants')->first();
         $backoffice = route('admin.dashboard');
 
         $this->post(route('cart.add', $product))->assertRedirect($backoffice);
@@ -67,7 +67,7 @@ class AdminRestrictionsTest extends TestCase
 
     public function test_admin_login_from_shop_goes_to_backoffice_even_from_checkout(): void
     {
-        $this->post(route('cart.add', Product::first()));
+        $this->post(route('cart.add', Product::doesntHave('variants')->first()));
         $this->get('/checkout')->assertRedirect(route('login')); // guarda el checkout como página pendiente
 
         $this->post(route('login.store'), ['email' => 'admin@piquantum.test', 'password' => 'admin1234'])
@@ -76,10 +76,11 @@ class AdminRestrictionsTest extends TestCase
 
     public function test_customers_and_guests_are_not_affected(): void
     {
-        $product = Product::first();
+        $product = Product::doesntHave('variants')->first();
         $this->post(route('cart.add', $product))->assertRedirect(route('cart.show')); // invitado
 
         $this->actingAs(User::where('email', 'laura@example.com')->firstOrFail());
+        $this->post(route('cart.add', $product))->assertRedirect(route('cart.show')); // cliente
         $this->get('/mi-cuenta')->assertOk()->assertSee('Mi cuenta');
         $this->get('/checkout')->assertOk();
     }

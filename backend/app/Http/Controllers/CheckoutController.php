@@ -34,6 +34,20 @@ class CheckoutController extends Controller
         ]);
     }
 
+    /** Paso 2 · Aplica o quita un código de descuento (se guarda en la sesión hasta crear el pedido). */
+    public function applyCode(Request $request, CartService $cart)
+    {
+        $data = $request->validate(['code' => ['nullable', 'string', 'max:30']]);
+
+        if (! $cart->applyCode($data['code'] ?? null)) {
+            return redirect()->route('checkout.show')
+                ->withErrors(['code' => 'El código de descuento no es válido.'])
+                ->withInput($request->only('code'));
+        }
+
+        return redirect()->route('checkout.show')->with('status', 'Código de descuento actualizado.');
+    }
+
     /** Paso 3 · Valida los datos de envío y crea el pedido en una transacción (OrderService). */
     public function store(Request $request, OrderService $orders)
     {

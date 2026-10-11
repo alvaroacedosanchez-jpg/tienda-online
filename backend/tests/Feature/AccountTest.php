@@ -32,7 +32,7 @@ class AccountTest extends TestCase
     /** Compra un producto como el usuario conectado y, opcionalmente, lo paga. */
     private function buy(bool $pay = true, string $card = '4242 4242 4242 4242'): Order
     {
-        $this->post(route('cart.add', Product::first()));
+        $this->post(route('cart.add', Product::doesntHave('variants')->first()));
         $this->post('/checkout', [
             'name' => 'Laura Prueba', 'address' => 'Calle Ficticia 1', 'city' => 'Madrid',
             'postal_code' => '28001', 'accept_prototype' => '1',

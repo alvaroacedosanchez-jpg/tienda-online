@@ -27,13 +27,13 @@ Route::middleware('customer')->group(function () {
     Route::post('/carrito/anadir/{product}', [CartController::class, 'add'])->name('cart.add');
     Route::patch('/carrito/{itemKey}', [CartController::class, 'update'])->name('cart.update');
     Route::delete('/carrito/{itemKey}', [CartController::class, 'remove'])->name('cart.remove');
-    Route::post('/carrito/codigo', [CartController::class, 'applyCode'])->name('cart.code');
 });
 
 // Checkout, pago simulado, pedido y área de cliente: solo clientes con sesión iniciada
 Route::middleware(['auth', 'customer'])->group(function () {
     Route::get('/checkout', [CheckoutController::class, 'show'])->name('checkout.show');
     Route::post('/checkout', [CheckoutController::class, 'store'])->name('checkout.store');
+    Route::post('/checkout/codigo', [CheckoutController::class, 'applyCode'])->name('checkout.code');
     Route::get('/pedido/{order}/pagar', [CheckoutController::class, 'payForm'])->name('orders.pay');
     Route::post('/pedido/{order}/pagar', [CheckoutController::class, 'pay'])->name('orders.pay.store');
     Route::get('/pedido/{order}', [OrderController::class, 'show'])->name('orders.show');

@@ -7,6 +7,7 @@ use App\Models\ProductVariant;
 use App\Services\CartService;
 use App\Services\EventLogger;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class CartController extends Controller
 {
@@ -16,27 +17,39 @@ class CartController extends Controller
         return view('cart.index', [
             'items'   => $cart->items(),
             'summary' => $cart->summary(),
-            'code'    => $cart->code(),
         ]);
     }
 
     /** Paso 1 · Añade un producto (o una variante de tamaño) al carrito y registra cart.item_added. */
     public function add(Request $request, Product $product, CartService $cart, EventLogger $events)
     {
+        abort_unless($product->active, 404);
+
+        // Si el producto tiene tamaños, hay que elegir uno, y debe ser de este producto
+        $hasVariants = $product->variants()->exists();
         $data = $request->validate([
             'quantity'   => ['nullable', 'integer', 'min:1', 'max:10'],
-            'variant_id' => ['nullable', 'exists:product_variants,id'],
+            'variant_id' => [
+                $hasVariants ? 'required' : 'prohibited',
+                Rule::exists('product_variants', 'id')->where('product_id', $product->id),
+            ],
+        ], [
+            'variant_id.required'   => 'Elige un tamaño.',
+            'variant_id.exists'     => 'El tamaño elegido no es válido para este producto.',
+            'variant_id.prohibited' => 'Este producto no tiene tamaños.',
         ]);
-
-        abort_unless($product->active && $product->stock > 0, 404);
 
         $quantity = (int) ($data['quantity'] ?? 1);
         $variant = !empty($data['variant_id']) ? ProductVariant::find($data['variant_id']) : null;
+        $itemLabel = $variant ? "«{$product->name} ({$variant->size})»" : "«{$product->name}»";
+
+        // El stock que cuenta es el del tamaño elegido; si no hay tamaños, el del producto
+        if (($variant ?? $product)->stock <= 0) {
+            return back()->withErrors(['cart' => "{$itemLabel} está agotado."]);
+        }
 
         // Pasar producto y variante al servicio: devuelve las unidades que entraron de verdad (limitadas por el stock)
         $added = $cart->add($product, $quantity, $variant);
-
-        $itemLabel = $variant ? "«{$product->name} ({$variant->size})»" : "«{$product->name}»";
 
         if ($added === 0) {
             return redirect()->route('cart.show')
@@ -99,18 +112,6 @@ class CartController extends Controller
         }
 
         return redirect()->route('cart.show')->with('status', 'Producto eliminado del carrito.');
-    }
-
-    /** Paso 1 · Aplica o quita un código de descuento. */
-    public function applyCode(Request $request, CartService $cart)
-    {
-        $data = $request->validate(['code' => ['nullable', 'string', 'max:30']]);
-
-        if (! $cart->applyCode($data['code'] ?? null)) {
-            return redirect()->route('cart.show')->withErrors(['code' => 'El código de descuento no es válido.']);
-        }
-
-        return redirect()->route('cart.show')->with('status', 'Código actualizado.');
     }
 
     /** Registra cart.item_removed con la línea tal como estaba antes de quitarla. */
