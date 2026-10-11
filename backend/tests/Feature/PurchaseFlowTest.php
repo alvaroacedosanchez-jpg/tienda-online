@@ -6,6 +6,7 @@ use App\Exceptions\CheckoutException;
 use App\Models\Customer;
 use App\Models\Event;
 use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\User;
 use App\Services\PaymentSimulator;
@@ -17,10 +18,23 @@ class PurchaseFlowTest extends TestCase
 {
     use RefreshDatabase;
 
+    /** El seeder crea pedidos de demostración: las comprobaciones se hacen respecto a lo que ya había. */
+    private int $ordersBefore;
+
+    private int $itemsBefore;
+
     protected function setUp(): void
     {
         parent::setUp();
         $this->seed(DatabaseSeeder::class);
+        $this->ordersBefore = Order::count();
+        $this->itemsBefore = OrderItem::count();
+    }
+
+    /** Último pedido creado (el del test, no uno de demostración del seeder). */
+    private function lastOrder(): Order
+    {
+        return Order::latest('id')->firstOrFail();
     }
 
     /** Inicia sesión como la clienta de prueba Laura (el checkout exige usuario). */
@@ -59,7 +73,7 @@ class PurchaseFlowTest extends TestCase
         $this->get('/checkout')->assertOk();
 
         $response = $this->post('/checkout', $this->customerData());
-        $order = Order::firstOrFail();
+        $order = $this->lastOrder();
         $response->assertRedirect(route('orders.pay', $order));
         $this->assertSame(Order::CREATED, $order->status);
 
@@ -86,7 +100,7 @@ class PurchaseFlowTest extends TestCase
         $product = Product::first();
         $this->post(route('cart.add', $product), ['quantity' => 1]);
         $this->post('/checkout', $this->customerData());
-        $order = Order::firstOrFail();
+        $order = $this->lastOrder();
 
         $this->post(route('orders.pay.store', $order), [
             'method' => 'card', 'card_number' => '4000 0000 0000 0002', 'card_expiry' => '12/30', 'card_cvv' => '123',
@@ -103,7 +117,7 @@ class PurchaseFlowTest extends TestCase
         $this->post(route('cart.code'), ['code' => 'BIENVENIDA10']);
         $this->post('/checkout', $this->customerData());
 
-        $order = Order::firstOrFail();
+        $order = $this->lastOrder();
         $this->assertEquals(5.90, (float) $order->subtotal);
         $this->assertEquals(0.59, (float) $order->discount);   // 10 %
         $this->assertEquals(4.95, (float) $order->shipping);   // por debajo de 60 €
@@ -146,7 +160,7 @@ class PurchaseFlowTest extends TestCase
         $stock = $product->stock;
         $this->post(route('cart.add', $product), ['quantity' => 2]);
         $this->post('/checkout', $this->customerData());
-        $order = Order::firstOrFail();
+        $order = $this->lastOrder();
         $this->assertSame($stock - 2, $product->fresh()->stock);
 
         $admin = User::where('email', 'admin@piquantum.test')->first();
@@ -178,7 +192,7 @@ class PurchaseFlowTest extends TestCase
         $this->post(route('cart.add', $product));
         $this->post('/checkout', ['address' => 'Avenida Dos 2', 'city' => 'Sevilla'] + $this->customerData());
 
-        [$first, $second] = Order::orderBy('id')->get();
+        [$first, $second] = Order::orderByDesc('id')->take(2)->get()->reverse()->values();
         $this->assertSame('Calle Uno 1', $first->shipping_address);
         $this->assertSame('Avenida Dos 2', $second->shipping_address);
         $this->assertSame('Sevilla', $second->shipping_city);
@@ -201,7 +215,7 @@ class PurchaseFlowTest extends TestCase
         $customer = $user->fresh()->customer;
         $this->assertNotNull($customer);
         $this->assertSame('nuevo@example.com', $customer->email); // el correo de la cuenta
-        $this->assertSame($customer->id, Order::firstOrFail()->customer_id);
+        $this->assertSame($customer->id, $this->lastOrder()->customer_id);
     }
 
     public function test_checkout_without_stock_rolls_back_everything(): void
@@ -218,8 +232,8 @@ class PurchaseFlowTest extends TestCase
             ->assertRedirect(route('cart.show'))
             ->assertSessionHasErrors('cart');
 
-        $this->assertSame(0, Order::count());
-        $this->assertDatabaseCount('order_items', 0);
+        $this->assertSame($this->ordersBefore, Order::count());
+        $this->assertDatabaseCount('order_items', $this->itemsBefore);
         $this->assertFalse(Event::where('type', 'order.created')->exists());
         $this->assertNull($user->fresh()->customer, 'La ficha de cliente debe revertirse');
         $this->assertSame(1, $product->fresh()->stock);
@@ -242,8 +256,8 @@ class PurchaseFlowTest extends TestCase
 
         $this->post('/checkout', $this->customerData())->assertServerError();
 
-        $this->assertSame(0, Order::count());
-        $this->assertDatabaseCount('order_items', 0);
+        $this->assertSame($this->ordersBefore, Order::count());
+        $this->assertDatabaseCount('order_items', $this->itemsBefore);
         $this->assertSame($stock, $product->fresh()->stock);
         $this->assertNotEmpty(session('cart'));
     }
@@ -258,7 +272,7 @@ class PurchaseFlowTest extends TestCase
         $this->post(route('cart.add', $product), ['quantity' => 2, 'variant_id' => $variant->id]);
         $this->post('/checkout', $this->customerData())->assertRedirect();
 
-        $item = Order::firstOrFail()->items()->firstOrFail();
+        $item = $this->lastOrder()->items()->firstOrFail();
         $this->assertSame($variant->id, $item->product_variant_id);
         $this->assertSame('200 ml', $item->variant_size);
         $this->assertEquals(9.90, (float) $item->unit_price);
@@ -280,7 +294,7 @@ class PurchaseFlowTest extends TestCase
             ->assertRedirect(route('cart.show'))
             ->assertSessionHasErrors('cart');
 
-        $this->assertSame(0, Order::count());
+        $this->assertSame($this->ordersBefore, Order::count());
         $this->assertSame(2, $variant->fresh()->stock);
     }
 
@@ -289,7 +303,7 @@ class PurchaseFlowTest extends TestCase
         $this->actingAsCustomer();
         $this->post(route('cart.add', Product::first()));
         $this->post('/checkout', $this->customerData());
-        $order = Order::firstOrFail();
+        $order = $this->lastOrder();
 
         $this->actingAsCustomer('carlos@example.com');
         $this->get(route('orders.show', $order))->assertNotFound();
@@ -303,7 +317,7 @@ class PurchaseFlowTest extends TestCase
         $this->actingAsCustomer();
         $this->post(route('cart.add', Product::first()));
         $this->post('/checkout', $this->customerData());
-        $order = Order::firstOrFail();
+        $order = $this->lastOrder();
         $stale = $order->replicate(); // copia "vieja" que aún cree que el pedido está sin pagar
         $stale->id = $order->id;
 

@@ -39,7 +39,7 @@ class AdminRestrictionsTest extends TestCase
     {
         $this->actingAs($this->admin());
         $product = Product::first();
-        $backoffice = route('admin.orders.index');
+        $backoffice = route('admin.dashboard');
 
         $this->post(route('cart.add', $product))->assertRedirect($backoffice);
         $this->get('/carrito')->assertRedirect($backoffice);
@@ -52,7 +52,7 @@ class AdminRestrictionsTest extends TestCase
 
         $this->assertEmpty(session('cart', []));
         $this->assertNull(Customer::where('user_id', $this->admin()->id)->first(), 'El admin no tiene ficha de cliente');
-        $this->assertSame(0, Order::count());
+        $this->assertSame(0, Order::whereHas('customer', fn ($q) => $q->where('user_id', $this->admin()->id))->count());
     }
 
     public function test_product_page_does_not_offer_add_to_cart_to_admin(): void
@@ -71,7 +71,7 @@ class AdminRestrictionsTest extends TestCase
         $this->get('/checkout')->assertRedirect(route('login')); // guarda el checkout como página pendiente
 
         $this->post(route('login.store'), ['email' => 'admin@piquantum.test', 'password' => 'admin1234'])
-            ->assertRedirect(route('admin.orders.index'));
+            ->assertRedirect(route('admin.dashboard'));
     }
 
     public function test_customers_and_guests_are_not_affected(): void

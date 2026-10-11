@@ -209,3 +209,27 @@ Plantilla para cada entrada:
 - **Errores detectados en la IA:** ninguno. Pint reordenó los `use` de `bootstrap/app.php`.
 - **Cambios del grupo:** —
 - **Validación:** `php artisan test` **41/41** (36 anteriores + 5 nuevos). Se comprueba que el admin no puede añadir al carrito, entrar en el carrito, el checkout o "Mi cuenta", ni cambiar la dirección; que no se le crea ficha de cliente ni pedidos; y que los invitados y clientes siguen igual.
+
+### 2026-10-11 · Abel · Usuario en los eventos y eventos de carrito completos (rama `feature/eventos-usuario`)
+- **Tarea:** saber qué usuario provoca cada evento (por ejemplo, quién añade al carrito) para poder analizarlo en la Tarea 2.
+- **Instrucciones y decisiones de Abel (no de la IA):**
+  - Columna `user_id` en `events`.
+  - Adoptar los eventos de invitado al iniciar sesión.
+  - Eventos de carrito completos.
+  - **Sin** cambios en la exportación JSON/CSV: la Tarea 2 leerá directamente de la base de datos.
+  - Lo programa la IA, con un plan aprobado antes.
+- **Partes asistidas:** la IA escribió entero este paso:
+  - migración `add_user_id_to_events_table` (nullable, clave foránea con `nullOnDelete`) y relación `Event::user()`;
+  - `EventLogger::log` rellena `user_id` con `auth()->id()` en **todos** los eventos;
+  - nuevo `EventLogger::adoptGuestEvents()`, llamado en el login y el registro con el id de sesión **anterior** a `regenerate()`. No se aplica al administrador;
+  - `CartService::add()` devuelve las unidades que entraron de verdad, y nuevo `CartService::line()`;
+  - `cart.item_added` guarda `quantity` (real) y `requested_quantity`; si no entra ninguna unidad, no se registra evento y se avisa al cliente;
+  - nuevos eventos `cart.item_updated` (`from`/`to`) y `cart.item_removed` (también con cantidad 0);
+  - 11 tests en `tests/Feature/EventUserTest.php`; README (tabla de eventos y significado de `user_id` como dato personal).
+- **Errores detectados:**
+  - **En el código del equipo (no de esta tarea):** al empezar, `main` tenía **13 tests en rojo** (28/41) por los últimos cambios del back-office: el seeder ahora crea pedidos de demostración y el administrador va al dashboard. Eran los tests los que suponían una base de datos sin pedidos; se adaptaron (`PurchaseFlowTest`, `AdminRestrictionsTest`) en un commit aparte.
+  - **En la IA:** los tests de "adoptar eventos" fallaban porque en los tests de Laravel cada petición recibe un id de sesión distinto si no se envía la cookie. Se comprobó con un navegador real (curl con cookies) que la aplicación funcionaba, y se corrigieron los tests para que envíen la misma cookie de sesión, como un navegador.
+- **Cambios del grupo:** decisiones indicadas arriba.
+- **Validación:**
+  - `php artisan test` **52/52** (41 + 11 nuevos).
+  - Recorrido real: como invitado se ve un producto y se añade al carrito (eventos con `user_id = NULL`); al iniciar sesión como Laura esos dos eventos pasan a `user_id = 2`, y los siguientes (`checkout.started`) ya se guardan con su usuario.

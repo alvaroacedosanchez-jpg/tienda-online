@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Services\EventLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -13,7 +14,7 @@ class RegisterController extends Controller
         return view('auth.register');
     }
 
-    public function store(Request $request)
+    public function store(Request $request, EventLogger $events)
     {
         // Validamos los datos
         $data = $request->validate([
@@ -35,9 +36,11 @@ class RegisterController extends Controller
         // Creamos el usuario
         $user = User::create($data);
 
-        // Iniciamos sesion
+        // Iniciamos sesion (guardamos antes el id de sesión de invitado para adoptar sus eventos)
+        $guestSessionId = $request->session()->getId();
         Auth::login($user);
         $request->session()->regenerate();
+        $events->adoptGuestEvents($guestSessionId, $user);
         
         // Redirigimos a la página que pedía (p. ej. el checkout) o, si no había ninguna, a la portada
         return redirect()->intended(route('home'))->with('status', 'Bienvenido/a, '. $user->name .'. Tu cuenta ha sido creada');
