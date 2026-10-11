@@ -15,7 +15,7 @@ Genera pedidos y **eventos de negocio** que otro sistema podrá consumir en la T
 - Área de cliente (`/mi-cuenta`): pedidos en curso y anteriores, facturas en PDF, cambio de contraseña, dirección por defecto y baja de la cuenta.
 - Facturas con numeración correlativa por año (`FAC-2026-0001`), emitidas en la misma transacción que el pago aprobado.
 - Imagen de cada salsa y de cada tamaño (ilustraciones SVG generadas con `php artisan piquantum:product-images`). En la ficha, al elegir otro tamaño cambian la imagen, el precio y el stock. Se pueden sustituir por fotos reales cambiando la columna `image` de `products` o `product_variants`.
-- Checkout con validación, **pago simulado** (tarjeta/transferencia) y pedido con referencia única (`PQ-YYYYMMDD-XXXXXX`). Pedido, líneas, stock, ficha de cliente y eventos se guardan en una única transacción: si un paso falla, no se guarda nada.
+- Checkout con validación y pedido con referencia única (`PQ-YYYYMMDD-XXXXXX`). Pago con **tarjeta en el TPV Virtual de Redsys (entorno de pruebas)** o por **transferencia simulada**. Pedido, líneas, stock, ficha de cliente y eventos se guardan en una única transacción: si un paso falla, no se guarda nada.
 - Cada pedido guarda su propia dirección de envío (copia histórica) y solo lo puede ver y pagar su dueño.
 - Estados de pedido: `creado → pagado_simulado → pendiente_preparacion → enviado`, además de `cancelado` e `incidencia`.
 - Back-office (`/admin/login`): pedidos con cambio de estado, eventos (filtro + exportación JSON/CSV) y solicitudes de soporte.
@@ -50,12 +50,24 @@ Se guardan en la tabla `events` (`type`, `occurred_at`, `session_id`, `user_id`,
 | `cart.item_removed` | se quita una línea del carrito (o se pone a 0) |
 | `checkout.started` | se entra en el checkout |
 | `order.created` | se crea el pedido |
-| `payment.simulated` | se intenta un pago simulado (aprobado o rechazado) |
+| `payment.simulated` | se resuelve un pago: respuesta firmada del TPV de Redsys en pruebas (`gateway: redsys`, con `response_code`) o transferencia simulada (`gateway: simulado`) |
 | `order.status_changed` | cambia el estado de un pedido |
 | `support.requested` | se envía una solicitud de soporte |
 | `invoice.issued` | se emite la factura de un pedido pagado |
 
 Consumo desde otro sistema (Tarea 2), con sesión de administrador: `GET /admin/eventos.json` y `GET /admin/eventos.csv` (parámetros opcionales `tipo` y `desde`).
+
+## Pago con el TPV Virtual de Redsys (entorno de pruebas)
+
+Integración por **redirección** con la librería oficial de Redsys (`backend/packages/redsys-lib`, versión 2.0.1, instalada con Composer como repositorio local). La lógica está en `app/Services/RedsysGateway.php`.
+
+1. **Inicio:** al elegir "Tarjeta", se crea un pago en estado `pending` con su número de pedido para Redsys (`gateway_order`, 12 dígitos, uno por intento). El cliente va al TPV con un formulario **firmado** (HMAC SHA-512) que incluye importe en céntimos, `urlOk`/`urlKo` y la URL de notificación.
+2. **Notificación** (`POST /pagos/redsys/notificacion`): Redsys envía el resultado firmado a la tienda. Se verifica la firma y que el importe coincide, y en una transacción se guarda el resultado. Si se aprueba (`Ds_Response` 0000-0099): pedido pagado, factura y pendiente de preparación. Está excluida de CSRF porque la llama el servidor de Redsys; la seguridad está en la firma.
+3. **Retorno** (`/pagos/redsys/{pago}/ok|ko`): Redsys devuelve al cliente con la misma respuesta firmada, que se procesa igual. Es **idempotente**: si llegan la notificación y el retorno, solo cuenta una vez. Una `urlOk` sin firmar no cambia nada.
+
+Configuración: `REDSYS_API_KEY` en `.env`. La de `.env.example` es la clave **pública** del comercio de pruebas de Redsys (999008881-001); un comercio real usaría la suya, sin subirla al repositorio. En el hosting, `APP_URL` debe ser la URL pública (https) para que Redsys pueda enviar las notificaciones. **En local**, Redsys no puede notificar a `localhost`, así que el pago se confirma con la respuesta firmada del retorno.
+
+Dependencia añadida: librería PHP oficial de Redsys. Evita implementar a mano la firma, la codificación y los endpoints del TPV. La guía PDF y los ejemplos descargados de Redsys no se suben al repositorio (`.gitignore`).
 
 ## Instalación local
 
@@ -81,11 +93,10 @@ Notas:
 |---|---|
 | Back-office | `admin@piquantum.test` / `admin1234` (cuenta de prueba, no real; solo gestiona: no puede comprar ni usar "Mi cuenta") |
 | Clientes | `laura@example.com`, `carlos@example.com`, `marta@example.com` / `cliente1234` (cuentas de prueba) |
-| Tarjeta aprobada | `4242 4242 4242 4242`, caducidad `12/30`, CVV `123` |
-| Tarjeta rechazada | `4000 0000 0000 0002` |
+| Tarjetas (TPV Redsys) | Las [tarjetas de prueba oficiales de Redsys](https://pagosonline.redsys.es/desarrolladores-inicio/integrate-con-nosotros/tarjetas-y-entornos-de-prueba/). Nunca una tarjeta real |
 | Códigos de descuento | `BIENVENIDA10` (−10 %), `ACADEMICO15` (−15 %) |
 
-El número de tarjeta **no se guarda**: solo los 4 últimos dígitos.
+La tienda **nunca recibe el número de tarjeta**: se introduce en la página de Redsys, y de su respuesta solo se guardan los 4 últimos dígitos (enmascarados por Redsys).
 
 ## Despliegue en hosting PHP
 
@@ -98,7 +109,7 @@ El número de tarjeta **no se guarda**: solo los 4 últimos dígitos.
 
 ## Limitaciones conocidas
 
-- Pagos, envíos e impuestos **simulados**; sin pasarela real. Las facturas **no tienen validez fiscal** (empresa y CIF ficticios) y no hay facturas rectificativas: cancelar un pedido pagado no anula su factura.
+- El pago con tarjeta usa el TPV de Redsys en su **entorno de pruebas** (no se cobra nada); la transferencia, los envíos y los impuestos son **simulados**. Las facturas **no tienen validez fiscal** (empresa y CIF ficticios) y no hay facturas rectificativas: cancelar un pedido pagado no anula su factura.
 - El carrito de un invitado vive en la sesión y se pierde al caducar; solo se conserva si inicia sesión o se registra en esa visita.
 - El carrito no reserva stock: se avisa si una línea supera el stock actual y el checkout lo rechaza si no se corrige.
 - Un usuario dado de baja (soft delete) conserva su correo ocupado y no puede volver a registrarse con él.

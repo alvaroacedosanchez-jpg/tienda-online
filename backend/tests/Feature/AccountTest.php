@@ -9,10 +9,12 @@ use App\Models\Product;
 use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Concerns\FakesRedsys;
 use Tests\TestCase;
 
 class AccountTest extends TestCase
 {
+    use FakesRedsys;
     use RefreshDatabase;
 
     protected function setUp(): void
@@ -29,8 +31,8 @@ class AccountTest extends TestCase
         return $user;
     }
 
-    /** Compra un producto como el usuario conectado y, opcionalmente, lo paga. */
-    private function buy(bool $pay = true, string $card = '4242 4242 4242 4242'): Order
+    /** Compra un producto como el usuario conectado y, opcionalmente, lo paga con tarjeta en Redsys (respuesta firmada). */
+    private function buy(bool $pay = true, string $redsysResponse = '0000'): Order
     {
         $this->post(route('cart.add', Product::doesntHave('variants')->first()));
         $this->post('/checkout', [
@@ -40,9 +42,7 @@ class AccountTest extends TestCase
         $order = Order::latest('id')->firstOrFail();
 
         if ($pay) {
-            $this->post(route('orders.pay.store', $order), [
-                'method' => 'card', 'card_number' => $card, 'card_expiry' => '12/30', 'card_cvv' => '123',
-            ]);
+            $this->notifyRedsys($this->startRedsysPayment($order), $redsysResponse)->assertOk();
         }
 
         return $order->fresh();
@@ -91,7 +91,7 @@ class AccountTest extends TestCase
     public function test_declined_payment_does_not_issue_invoice(): void
     {
         $this->login();
-        $order = $this->buy(card: '4000 0000 0000 0002');
+        $order = $this->buy(redsysResponse: '0190'); // denegada por Redsys
 
         $this->assertSame(Order::CREATED, $order->status);
         $this->assertNull($order->invoice);

@@ -13,10 +13,12 @@ use App\Services\CartService;
 use App\Services\PaymentSimulator;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Concerns\FakesRedsys;
 use Tests\TestCase;
 
 class PurchaseFlowTest extends TestCase
 {
+    use FakesRedsys;
     use RefreshDatabase;
 
     /** El seeder crea pedidos de demostración: las comprobaciones se hacen respecto a lo que ya había. */
@@ -78,24 +80,21 @@ class PurchaseFlowTest extends TestCase
         $response->assertRedirect(route('orders.pay', $order));
         $this->assertSame(Order::CREATED, $order->status);
 
-        $this->post(route('orders.pay.store', $order), [
-            'method' => 'card',
-            'card_number' => '4242 4242 4242 4242',
-            'card_expiry' => '12/30',
-            'card_cvv' => '123',
-        ])->assertRedirect(route('orders.show', $order));
+        // Pago con tarjeta en el TPV de Redsys: redirección y respuesta firmada de Redsys
+        $payment = $this->startRedsysPayment($order);
+        $this->notifyRedsys($payment)->assertOk();
 
         $order->refresh();
         $this->assertSame(Order::PENDING_PREPARATION, $order->status);
-        $this->assertDatabaseHas('payments', ['order_id' => $order->id, 'status' => 'approved', 'card_last4' => '4242']);
-        $this->assertDatabaseMissing('payments', ['card_last4' => '4242 4242 4242 4242']);
+        // De la tarjeta solo se guardan los 4 últimos dígitos (Redsys la envía enmascarada)
+        $this->assertDatabaseHas('payments', ['order_id' => $order->id, 'status' => 'approved', 'card_last4' => '0003']);
 
         foreach (['product.viewed', 'cart.item_added', 'checkout.started', 'order.created', 'payment.simulated'] as $type) {
             $this->assertTrue(Event::where('type', $type)->exists(), "Falta el evento $type");
         }
     }
 
-    public function test_declined_card_keeps_order_created(): void
+    public function test_declined_card_in_redsys_keeps_order_created(): void
     {
         $this->actingAsCustomer();
         $product = Product::doesntHave('variants')->first();
@@ -103,9 +102,10 @@ class PurchaseFlowTest extends TestCase
         $this->post('/checkout', $this->customerData());
         $order = $this->lastOrder();
 
-        $this->post(route('orders.pay.store', $order), [
-            'method' => 'card', 'card_number' => '4000 0000 0000 0002', 'card_expiry' => '12/30', 'card_cvv' => '123',
-        ])->assertSessionHasErrors('payment');
+        $payment = $this->startRedsysPayment($order);
+        $this->get(route('redsys.ko', $payment).'?'.http_build_query($this->redsysResponse($payment, '0190')))
+            ->assertRedirect(route('orders.pay', $order))
+            ->assertSessionHasErrors('payment');
 
         $this->assertSame(Order::CREATED, $order->fresh()->status);
     }
@@ -328,7 +328,7 @@ class PurchaseFlowTest extends TestCase
         // Aunque una segunda petición llegue con datos antiguos, el bloqueo y la relectura lo impiden
         $this->expectException(CheckoutException::class);
         try {
-            app(PaymentSimulator::class)->pay($stale, 'transfer');
+            app(PaymentSimulator::class)->pay($stale);
         } finally {
             $this->assertSame(1, $order->payments()->where('status', 'approved')->count());
         }
