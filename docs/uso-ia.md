@@ -233,3 +233,31 @@ Plantilla para cada entrada:
 - **Validación:**
   - `php artisan test` **52/52** (41 + 11 nuevos).
   - Recorrido real: como invitado se ve un producto y se añade al carrito (eventos con `user_id = NULL`); al iniciar sesión como Laura esos dos eventos pasan a `user_id = 2`, y los siguientes (`checkout.started`) ya se guardan con su usuario.
+
+### 2026-10-11 · Abel · Carrito persistente, stock de variante y descuento en el checkout (rama `feature/carrito-persistente`)
+- **Tarea:** ajustar el Order-to-Cash a partir del informe: guardar el carrito de los clientes registrados entre sesiones y comprobar el stock de la variante al añadir al carrito.
+- **Instrucciones y decisiones de Abel (no de la IA):**
+  - Carrito en **base de datos** para usuarios registrados; para invitados se queda en la sesión.
+  - Al iniciar sesión, el carrito de invitado se **fusiona** con el guardado.
+  - El **código de descuento pasa al checkout** y no se guarda con el carrito.
+  - Si una línea supera el stock actual, **solo se avisa**.
+  - Lo programa la IA, con un plan aprobado antes.
+- **Partes asistidas:** la IA escribió entero este paso:
+  - migración `create_carts_tables` (`carts`, `cart_items`: solo productos, tamaños y cantidades, sin precios), modelos `Cart` y `CartItem`, y `User::cart()`;
+  - `CartService` reorganizado con dos almacenes (base de datos para clientes, sesión para invitados) detrás de los métodos privados `readLines()`/`writeLines()`, sin cambiar su interfaz pública; nuevo `mergeGuestCart()`, llamado en el login y el registro (no para el admin);
+  - `OrderService`: el vaciado del carrito pasa a hacerse **dentro** de la transacción del pedido;
+  - `CartController::add`: tamaño obligatorio si el producto tiene tamaños, y debe ser de ese producto; la comprobación de agotado usa el stock de la variante;
+  - aviso "Solo quedan N unidades" / "Agotado" en el carrito y en el checkout;
+  - código de descuento movido del carrito al checkout (ruta `checkout.code`);
+  - 13 tests nuevos en `tests/Feature/PersistentCartTest.php`; README.
+- **Errores detectados:**
+  - **Tests existentes que había que adaptar a las reglas nuevas, no fallos de la aplicación:** usaban `Product::first()`, que es un producto con tamaños, sin elegir tamaño (ahora es obligatorio); comprobaban el carrito en `session('cart')`, cuando ahora el del cliente está en la base de datos; y uno llenaba el carrito como invitado y entraba con `actingAs`, sin pasar por el login, por lo que no había fusión.
+  - **En la IA:** el aviso decía "Solo quedan 1 unidades"; corregido a "Solo queda 1 unidad".
+- **Cambios del grupo:** decisiones indicadas arriba.
+- **Validación:**
+  - `php artisan test`: **65/65** (52 + 13 nuevos).
+  - Recorrido HTTP real con cookies:
+    - Laura añade Chipotle 200 ml × 2 (guardado en `cart_items`) → cierra sesión → como invitada añade Verde → al iniciar sesión el carrito tiene las dos líneas;
+    - al bajar el stock del tamaño aparece el aviso;
+    - `BIENVENIDA10` se aplica en el checkout;
+    - el pedido sale con el descuento y `cart_items` queda vacío.

@@ -9,6 +9,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\User;
+use App\Services\CartService;
 use App\Services\PaymentSimulator;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -66,7 +67,7 @@ class PurchaseFlowTest extends TestCase
     public function test_full_purchase_flow_generates_order_and_events(): void
     {
         $this->actingAsCustomer();
-        $product = Product::first();
+        $product = Product::doesntHave('variants')->first();
 
         $this->get(route('product.show', $product))->assertOk();
         $this->post(route('cart.add', $product), ['quantity' => 2])->assertRedirect(route('cart.show'));
@@ -97,7 +98,7 @@ class PurchaseFlowTest extends TestCase
     public function test_declined_card_keeps_order_created(): void
     {
         $this->actingAsCustomer();
-        $product = Product::first();
+        $product = Product::doesntHave('variants')->first();
         $this->post(route('cart.add', $product), ['quantity' => 1]);
         $this->post('/checkout', $this->customerData());
         $order = $this->lastOrder();
@@ -114,7 +115,7 @@ class PurchaseFlowTest extends TestCase
         $this->actingAsCustomer();
         $product = Product::where('sku', 'SAL-003')->first(); // 5,90 €
         $this->post(route('cart.add', $product), ['quantity' => 1]);
-        $this->post(route('cart.code'), ['code' => 'BIENVENIDA10']);
+        $this->post(route('checkout.code'), ['code' => 'BIENVENIDA10']); // el código se aplica en el checkout
         $this->post('/checkout', $this->customerData());
 
         $order = $this->lastOrder();
@@ -127,7 +128,7 @@ class PurchaseFlowTest extends TestCase
     public function test_checkout_validates_input(): void
     {
         $this->actingAsCustomer();
-        $product = Product::first();
+        $product = Product::doesntHave('variants')->first();
         $this->post(route('cart.add', $product));
         $this->post('/checkout', ['name' => '', 'postal_code' => '12'])
             ->assertSessionHasErrors(['name', 'postal_code', 'address', 'city', 'accept_prototype']);
@@ -156,7 +157,7 @@ class PurchaseFlowTest extends TestCase
     public function test_cancelling_an_order_restores_stock(): void
     {
         $this->actingAsCustomer();
-        $product = Product::first();
+        $product = Product::doesntHave('variants')->first();
         $stock = $product->stock;
         $this->post(route('cart.add', $product), ['quantity' => 2]);
         $this->post('/checkout', $this->customerData());
@@ -171,7 +172,7 @@ class PurchaseFlowTest extends TestCase
 
     public function test_guest_must_log_in_to_checkout_and_returns_there_after_login(): void
     {
-        $this->post(route('cart.add', Product::first()));
+        $this->post(route('cart.add', Product::doesntHave('variants')->first()));
 
         $this->get('/checkout')->assertRedirect(route('login'));
 
@@ -185,7 +186,7 @@ class PurchaseFlowTest extends TestCase
     {
         $user = $this->actingAsCustomer();
         $customer = $user->customer;
-        $product = Product::first();
+        $product = Product::doesntHave('variants')->first();
 
         $this->post(route('cart.add', $product));
         $this->post('/checkout', ['address' => 'Calle Uno 1'] + $this->customerData());
@@ -209,7 +210,7 @@ class PurchaseFlowTest extends TestCase
         $user = User::create(['name' => 'Nuevo Cliente', 'email' => 'nuevo@example.com', 'password' => 'cliente1234']);
         $this->actingAs($user);
 
-        $this->post(route('cart.add', Product::first()));
+        $this->post(route('cart.add', Product::doesntHave('variants')->first()));
         $this->post('/checkout', $this->customerData())->assertRedirect();
 
         $customer = $user->fresh()->customer;
@@ -224,7 +225,7 @@ class PurchaseFlowTest extends TestCase
         $user = User::create(['name' => 'Nuevo Cliente', 'email' => 'nuevo@example.com', 'password' => 'cliente1234']);
         $this->actingAs($user);
 
-        $product = Product::first();
+        $product = Product::doesntHave('variants')->first();
         $this->post(route('cart.add', $product), ['quantity' => 2]);
         $product->update(['stock' => 1]); // otro cliente compra mientras tanto
 
@@ -237,13 +238,13 @@ class PurchaseFlowTest extends TestCase
         $this->assertFalse(Event::where('type', 'order.created')->exists());
         $this->assertNull($user->fresh()->customer, 'La ficha de cliente debe revertirse');
         $this->assertSame(1, $product->fresh()->stock);
-        $this->assertNotEmpty(session('cart'), 'El carrito se conserva para reintentar');
+        $this->assertGreaterThan(0, app(CartService::class)->count(), 'El carrito (guardado en BD) se conserva para reintentar');
     }
 
     public function test_technical_error_in_last_step_rolls_back_order_and_stock(): void
     {
         $this->actingAsCustomer();
-        $product = Product::first();
+        $product = Product::doesntHave('variants')->first();
         $stock = $product->stock;
         $this->post(route('cart.add', $product), ['quantity' => 2]);
 
@@ -259,7 +260,7 @@ class PurchaseFlowTest extends TestCase
         $this->assertSame($this->ordersBefore, Order::count());
         $this->assertDatabaseCount('order_items', $this->itemsBefore);
         $this->assertSame($stock, $product->fresh()->stock);
-        $this->assertNotEmpty(session('cart'));
+        $this->assertGreaterThan(0, app(CartService::class)->count(), 'El carrito (guardado en BD) se conserva');
     }
 
     public function test_variant_purchase_uses_variant_price_and_stock(): void
@@ -301,7 +302,7 @@ class PurchaseFlowTest extends TestCase
     public function test_other_users_cannot_see_or_pay_an_order(): void
     {
         $this->actingAsCustomer();
-        $this->post(route('cart.add', Product::first()));
+        $this->post(route('cart.add', Product::doesntHave('variants')->first()));
         $this->post('/checkout', $this->customerData());
         $order = $this->lastOrder();
 
@@ -315,7 +316,7 @@ class PurchaseFlowTest extends TestCase
     public function test_an_order_cannot_be_paid_twice(): void
     {
         $this->actingAsCustomer();
-        $this->post(route('cart.add', Product::first()));
+        $this->post(route('cart.add', Product::doesntHave('variants')->first()));
         $this->post('/checkout', $this->customerData());
         $order = $this->lastOrder();
         $stale = $order->replicate(); // copia "vieja" que aún cree que el pedido está sin pagar

@@ -45,7 +45,7 @@ class EventUserTest extends TestCase
         $laura = $this->user();
         $this->actingAs($laura);
 
-        $this->post(route('cart.add', Product::first()));
+        $this->post(route('cart.add', Product::doesntHave('variants')->first()));
         $this->get('/checkout');
         $this->post('/checkout', [
             'name' => 'Laura Prueba', 'address' => 'Calle Ficticia 1', 'city' => 'Madrid',
@@ -60,7 +60,7 @@ class EventUserTest extends TestCase
 
     public function test_guest_events_have_no_user(): void
     {
-        $product = Product::first();
+        $product = Product::doesntHave('variants')->first();
         $this->get(route('product.show', $product));
         $this->post(route('cart.add', $product));
 
@@ -71,7 +71,7 @@ class EventUserTest extends TestCase
     public function test_guest_events_are_adopted_on_login(): void
     {
         $this->sameBrowserSession();
-        $product = Product::first();
+        $product = Product::doesntHave('variants')->first();
         $this->get(route('product.show', $product));
         $this->post(route('cart.add', $product));
 
@@ -85,7 +85,7 @@ class EventUserTest extends TestCase
     public function test_guest_events_are_adopted_on_register(): void
     {
         $this->sameBrowserSession();
-        $this->post(route('cart.add', Product::first()));
+        $this->post(route('cart.add', Product::doesntHave('variants')->first()));
 
         $this->post(route('register.store'), [
             'name' => 'Nuevo Cliente', 'email' => 'nuevo@example.com',
@@ -98,7 +98,7 @@ class EventUserTest extends TestCase
     public function test_admin_does_not_adopt_guest_events(): void
     {
         $this->sameBrowserSession();
-        $this->get(route('product.show', Product::first()));
+        $this->get(route('product.show', Product::doesntHave('variants')->first()));
 
         $this->post(route('login.store'), ['email' => 'admin@piquantum.test', 'password' => 'admin1234']);
 
@@ -108,7 +108,7 @@ class EventUserTest extends TestCase
     public function test_events_of_other_sessions_are_not_adopted(): void
     {
         // Carlos navega en su propia sesión...
-        $this->actingAs($this->user('carlos@example.com'))->get(route('product.show', Product::first()));
+        $this->actingAs($this->user('carlos@example.com'))->get(route('product.show', Product::doesntHave('variants')->first()));
         $carlosEvent = $this->lastEvent('product.viewed');
 
         // ...y un invitado distinto inicia sesión como Laura: no se queda con el evento de Carlos
@@ -163,7 +163,7 @@ class EventUserTest extends TestCase
 
     public function test_setting_quantity_to_zero_logs_removal(): void
     {
-        $product = Product::first();
+        $product = Product::doesntHave('variants')->first();
         $this->post(route('cart.add', $product), ['quantity' => 2]);
 
         $this->patch(route('cart.update', (string) $product->id), ['quantity' => 0]);
