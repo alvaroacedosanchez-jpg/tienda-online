@@ -30,6 +30,8 @@
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>
+        <!-- Clave PÚBLICA del comercio de pruebas de Redsys (999008881-001, TEST): los tests firman respuestas con ella -->
+        <env name="REDSYS_API_KEY" value="TEST_OTk5MDA4ODgxXzAwMV9zcTdIanJVT0JmS21DNTc2SUxnc2tENXNyVTg3MGdKNw"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
     </php>

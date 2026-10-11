@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "3c8cba07c3dca072997a8691e1c0d492",
+    "content-hash": "b6a8faa91eb19d5aadd501bad527754f",
     "packages": [
         {
             "name": "barryvdh/laravel-dompdf",
@@ -3566,6 +3566,29 @@
                 "source": "https://github.com/ramsey/uuid/tree/4.9.4"
             },
             "time": "2026-09-16T11:39:30+00:00"
+        },
+        {
+            "name": "redsys/redsys-lib",
+            "version": "2.0.1",
+            "dist": {
+                "type": "path",
+                "url": "packages/redsys-lib",
+                "reference": "7c0bf0ca126d7f50360d34af26ea9728f80cd866"
+            },
+            "require": {
+                "php": ">=7.4"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Redsys\\": "src/"
+                }
+            },
+            "description": "PHP library to integrate easily with Redsys",
+            "transport-options": {
+                "symlink": false,
+                "relative": true
+            }
         },
         {
             "name": "sabberworm/php-css-parser",
