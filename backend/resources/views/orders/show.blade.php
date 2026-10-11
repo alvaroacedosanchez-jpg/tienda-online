@@ -36,7 +36,7 @@
             'shipping' => $order->shipping, 'tax' => $order->tax, 'total' => $order->total,
         ]])
         @foreach ($order->payments as $payment)
-            <p class="small">Pago simulado {{ $payment->reference }}: {{ $payment->status === 'approved' ? 'aprobado' : 'rechazado' }}</p>
+            <p class="small">{{ $payment->methodLabel() }} · {{ $payment->reference }}: {{ $payment->statusLabel() }}{{ $payment->card_last4 ? ' · tarjeta ****'.$payment->card_last4 : '' }}</p>
         @endforeach
         <p><a href="{{ route('support.create', ['pedido' => $order->reference]) }}">¿Algún problema con este pedido? Contacta con soporte</a></p>
     </div>

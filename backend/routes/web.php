@@ -2,18 +2,18 @@
 
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\Admin;
+use App\Http\Controllers\Admin\CustomerController as AdminCustomerController;
+use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\StockController as AdminStockController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\LoginController;
 use App\Http\Controllers\OrderController;
+use App\Http\Controllers\RedsysController;
 use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\ShopController;
 use App\Http\Controllers\SupportController;
-use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
-use App\Http\Controllers\Admin\CustomerController as AdminCustomerController;
-
 use Illuminate\Support\Facades\Route;
 
 // Tienda
@@ -38,6 +38,10 @@ Route::middleware(['auth', 'customer'])->group(function () {
     Route::post('/pedido/{order}/pagar', [CheckoutController::class, 'pay'])->name('orders.pay.store');
     Route::get('/pedido/{order}', [OrderController::class, 'show'])->name('orders.show');
 
+    // Vuelta del cliente desde el TPV de Redsys (urlOk / urlKo)
+    Route::get('/pagos/redsys/{payment}/ok', [RedsysController::class, 'ok'])->name('redsys.ok');
+    Route::get('/pagos/redsys/{payment}/ko', [RedsysController::class, 'ko'])->name('redsys.ko');
+
     // Área de cliente: pedidos, facturas y datos de la cuenta
     Route::prefix('mi-cuenta')->name('account.')->group(function () {
         Route::get('/', [AccountController::class, 'show'])->name('show');
@@ -49,6 +53,9 @@ Route::middleware(['auth', 'customer'])->group(function () {
         Route::delete('/', [AccountController::class, 'destroy'])->name('destroy');
     });
 });
+
+// Notificación del TPV de Redsys (la llama su servidor: sin sesión ni CSRF, se valida por firma)
+Route::post('/pagos/redsys/notificacion', [RedsysController::class, 'notify'])->name('redsys.notify');
 
 // Soporte
 Route::get('/soporte', [SupportController::class, 'create'])->name('support.create');
