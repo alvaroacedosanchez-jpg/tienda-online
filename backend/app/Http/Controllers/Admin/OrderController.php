@@ -42,4 +42,11 @@ class OrderController extends Controller
 
         return back()->with('status', 'Estado actualizado.');
     }
+
+    public function shippingLabel(Order $order)
+    {
+        $order->load(['customer', 'items']);
+
+        return view('admin.orders.label', compact('order'));
+    }
 }

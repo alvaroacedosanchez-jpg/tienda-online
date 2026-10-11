@@ -32,7 +32,9 @@
         <h2>Envío</h2>
         <p>{{ $order->shipping_name }}@if ($order->shipping_phone) · {{ $order->shipping_phone }}@endif<br>
         {{ $order->shipping_address }}, {{ $order->shipping_postal_code }} {{ $order->shipping_city }}</p>
-
+        <a href="{{ route('admin.orders.label', $order) }}" target="_blank" class="btn btn-small">
+            🖨️ Etiqueta de Envío
+        </a>
         <h2>Líneas</h2>
         <table class="table">
             <thead><tr><th>Producto</th><th>Uds.</th><th>Precio</th><th>Total</th></tr></thead>
@@ -54,6 +56,7 @@
             @endforeach
             </tbody>
         </table>
+        
     </div>
     <div>
         @include('partials.summary', ['summary' => [
