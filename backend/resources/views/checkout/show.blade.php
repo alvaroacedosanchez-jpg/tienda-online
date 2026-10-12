@@ -64,7 +64,9 @@
             <label for="code">Código de descuento</label>
             <input type="text" id="code" name="code" value="{{ old('code', $summary['discount_code']) }}" placeholder="BIENVENIDA10">
             @error('code')<p class="error">{{ $message }}</p>@enderror
-            <button class="btn btn-small" type="submit">Aplicar</button>
+            <div>
+                <button class="btn btn-small" type="submit">Aplicar</button>
+            </div>
         </form>
 
         @include('partials.summary', ['summary' => $summary])
