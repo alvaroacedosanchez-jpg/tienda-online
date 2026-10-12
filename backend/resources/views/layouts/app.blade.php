@@ -4,6 +4,11 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>@yield('title', 'Inicio') · {{ config('shop.name') }}</title>
+    {{-- Icono de la tienda: SVG para navegadores modernos, ICO de respaldo y PNG para la pantalla de inicio del móvil --}}
+    <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
+    <link rel="icon" href="{{ asset('favicon.ico') }}" sizes="32x32">
+    <link rel="apple-touch-icon" href="{{ asset('apple-touch-icon.png') }}">
+    <meta name="theme-color" content="#d7261e">
     <link rel="stylesheet" href="{{ asset('css/app.css') }}">
 </head>
 <body>

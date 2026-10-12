@@ -318,3 +318,13 @@ Plantilla para cada entrada:
     - el `replyTo` del aviso de soporte.
   - Revisión visual de los correos renderizados (pedido pagado, bienvenida y soporte) con capturas de Chrome.
   - **Pendiente:** prueba real con el SMTP de DonDominio cuando Abel ponga sus credenciales en su `.env`.
+
+### 2026-10-12 · Abel · Favicon de la tienda (rama `feature/favicon`)
+- **Tarea:** sustituir el favicon por defecto por uno acorde a la temática de salsas picantes.
+- **Partes asistidas:** la IA lo hizo entero a petición de Abel:
+  - diseño de `public/favicon.svg` (guindilla roja con rabito verde sobre círculo crema, legible a 16 px en pestañas claras y oscuras);
+  - `favicon.ico` (16 y 32 px) y `apple-touch-icon.png` (180 px), generados a partir del SVG;
+  - etiquetas `<link rel="icon">`, `apple-touch-icon` y `theme-color` en `layouts/app.blade.php`.
+- **Errores detectados:** el `favicon.ico` original de Laravel estaba **vacío (0 bytes)**, por eso se veía el icono genérico del navegador. En la IA: la primera previsualización mostraba los iconos pequeños deformados por la propia página de previsualización (un `flex` que estiraba las imágenes), no por los archivos, que tenían el tamaño correcto.
+- **Cambios del grupo:** —
+- **Validación:** previsualización a 128, 32 y 16 px y simulación de pestaña clara y oscura con Chrome; los tres archivos se sirven correctamente (200, tipo MIME correcto) y aparecen enlazados en el HTML; `php artisan test` 83/83.
