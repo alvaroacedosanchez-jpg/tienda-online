@@ -88,7 +88,7 @@ class RedsysPaymentTest extends TestCase
         $this->assertSame('0000', $event->payload['response_code']);
     }
 
-    public function test_declined_notification_keeps_order_created_without_invoice(): void
+    public function test_declined_notification_cancels_order_without_invoice(): void
     {
         $order = $this->createdOrder();
         $payment = $this->startRedsysPayment($order);
@@ -96,7 +96,72 @@ class RedsysPaymentTest extends TestCase
         $this->notifyRedsys($payment, '0190')->assertOk();
 
         $this->assertSame(Payment::DECLINED, $payment->fresh()->status);
-        $this->assertSame(Order::CREATED, $order->fresh()->status);
+        $this->assertSame(Order::CANCELLED, $order->fresh()->status);
+        $this->assertNull($order->fresh()->invoice);
+    }
+
+    /** El caso detectado en producción: cancelar en la página de Redsys y volver por urlKo sin respuesta firmada. */
+    public function test_cancel_in_redsys_cancels_order_restores_stock_and_cart(): void
+    {
+        $product = Product::where('sku', 'SAL-003')->firstOrFail();
+        $stockBefore = $product->stock;
+        $order = $this->createdOrder();
+        $this->assertSame($stockBefore - 1, $product->fresh()->stock, 'Al crear el pedido se descuenta el stock');
+        $this->assertSame(0, $this->laura()->cart?->items()->count() ?? 0, 'El pedido vacía el carrito');
+
+        $payment = $this->startRedsysPayment($order);
+        $this->get(route('redsys.ko', $payment))
+            ->assertRedirect(route('cart.show'))
+            ->assertSessionHasErrors('cart');
+
+        $this->assertSame(Order::CANCELLED, $order->fresh()->status);
+        $this->assertSame(Payment::DECLINED, $payment->fresh()->status);
+        $this->assertSame($stockBefore, $product->fresh()->stock, 'El stock vuelve a estar disponible');
+        $this->assertNull($order->fresh()->invoice);
+        $this->assertDatabaseHas('cart_items', ['product_id' => $product->id, 'quantity' => 1]);
+        $this->assertSame('cancelado', Event::where('type', 'order.status_changed')->latest('id')->first()->payload['to']);
+    }
+
+    public function test_declined_notification_restores_stock_and_cart(): void
+    {
+        $product = Product::where('sku', 'SAL-003')->firstOrFail();
+        $stockBefore = $product->stock;
+        $order = $this->createdOrder();
+
+        $this->notifyRedsys($this->startRedsysPayment($order), '9915')->assertOk(); // 9915 = cancelado por el usuario
+
+        $this->assertSame(Order::CANCELLED, $order->fresh()->status);
+        $this->assertSame($stockBefore, $product->fresh()->stock);
+        $this->assertDatabaseHas('cart_items', ['product_id' => $product->id]);
+    }
+
+    public function test_url_ko_after_approval_changes_nothing(): void
+    {
+        $order = $this->createdOrder();
+        $payment = $this->startRedsysPayment($order);
+        $this->notifyRedsys($payment, '0000');
+
+        $this->get(route('redsys.ko', $payment))->assertRedirect(route('orders.show', $order));
+
+        $this->assertSame(Order::PENDING_PREPARATION, $order->fresh()->status);
+        $this->assertSame(Payment::APPROVED, $payment->fresh()->status);
+    }
+
+    public function test_approval_arriving_for_a_cancelled_order_is_flagged_as_incident(): void
+    {
+        $order = $this->createdOrder();
+        $first = $this->startRedsysPayment($order);
+        $second = $this->startRedsysPayment($order);
+
+        $this->get(route('redsys.ko', $second)); // cancela en una pestaña → pedido cancelado
+        $this->assertSame(Order::CANCELLED, $order->fresh()->status);
+
+        // ...pero el intento de la otra pestaña sigue pendiente y Redsys lo aprueba: no se puede perder
+        $this->assertSame(Payment::PENDING, $first->fresh()->status);
+        $this->notifyRedsys($first, '0000')->assertOk();
+
+        $this->assertSame(Payment::APPROVED, $first->fresh()->status);
+        $this->assertSame(Order::INCIDENT, $order->fresh()->status, 'Cobro sin pedido activo: incidencia para devolverlo');
         $this->assertNull($order->fresh()->invoice);
     }
 

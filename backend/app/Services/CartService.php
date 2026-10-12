@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Cart;
+use App\Models\Order;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\User;
@@ -175,6 +176,36 @@ class CartService
         session()->forget(self::KEY);
     }
 
+    /**
+     * Pago cancelado o rechazado: devuelve los productos del pedido al carrito guardado de su cliente,
+     * para que pueda reintentar (con tope de stock y de 10 por línea). Funciona también sin sesión,
+     * por ejemplo desde la notificación de Redsys.
+     */
+    public function restoreOrder(Order $order): void
+    {
+        $user = $order->customer?->user;
+        if (! $user || $user->is_admin) {
+            return;
+        }
+
+        $lines = $this->readLines($user);
+        foreach ($order->items as $item) {
+            $available = $this->available($item->product_id, $item->product_variant_id);
+            if (! $available) {
+                continue; // producto desaparecido o agotado
+            }
+
+            $key = $this->generateKey($item->product_id, $item->product_variant_id);
+            $lines[$key] = [
+                'product_id' => $item->product_id,
+                'variant_id' => $item->product_variant_id,
+                'quantity' => min(($lines[$key]['quantity'] ?? 0) + $item->quantity, $available, self::MAX_PER_LINE),
+            ];
+        }
+
+        $this->writeLines($lines, $user);
+    }
+
     /** Devuelve true si el código es válido y lo guarda (en la sesión: se aplica en el checkout). */
     public function applyCode(?string $code): bool
     {
@@ -247,9 +278,9 @@ class CartService
     }
 
     /** @return array<string, array{product_id: int, variant_id: ?int, quantity: int}> */
-    private function readLines(): array
+    private function readLines(?User $user = null): array
     {
-        $user = $this->databaseUser();
+        $user ??= $this->databaseUser();
         if (! $user) {
             return session(self::KEY, []);
         }
@@ -270,9 +301,9 @@ class CartService
      * Guarda las líneas. En base de datos sincroniza cart_items (crea, actualiza y borra)
      * en una transacción, y actualiza la fecha del carrito (útil para detectar abandonos).
      */
-    private function writeLines(array $lines): void
+    private function writeLines(array $lines, ?User $user = null): void
     {
-        $user = $this->databaseUser();
+        $user ??= $this->databaseUser();
         if (! $user) {
             session([self::KEY => $lines]);
 

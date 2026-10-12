@@ -173,6 +173,30 @@ class OrderService
         return $invoice;
     }
 
+    /**
+     * Pago cancelado o rechazado: el pedido no se ha pagado, así que se cancela al instante para no
+     * dejar el stock bloqueado. Todo en una transacción: estado "cancelado" (devuelve el stock y
+     * registra el evento) y productos devueltos al carrito del cliente para que pueda reintentar.
+     * Otros intentos de pago que sigan pendientes NO se tocan: si Redsys aprobara alguno después,
+     * se detecta y el pedido pasa a incidencia (RedsysGateway::settle), en vez de perder el cobro.
+     *
+     * @return bool false si el pedido ya no estaba pendiente de pago (pagado o ya cancelado)
+     */
+    public function cancelUnpaid(Order $order, string $origin = 'payment'): bool
+    {
+        return DB::transaction(function () use ($order, $origin) {
+            $order = Order::lockForUpdate()->findOrFail($order->id);
+            if ($order->status !== Order::CREATED) {
+                return false;
+            }
+
+            $this->changeStatus($order, Order::CANCELLED, $origin);
+            $this->cart->restoreOrder($order);
+
+            return true;
+        });
+    }
+
     /** Cambia el estado, registra el evento y devuelve stock si se cancela. */
     public function changeStatus(Order $order, string $newStatus, string $origin = 'system'): void
     {

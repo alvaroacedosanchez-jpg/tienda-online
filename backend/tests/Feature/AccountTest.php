@@ -93,7 +93,7 @@ class AccountTest extends TestCase
         $this->login();
         $order = $this->buy(redsysResponse: '0190'); // denegada por Redsys
 
-        $this->assertSame(Order::CREATED, $order->status);
+        $this->assertSame(Order::CANCELLED, $order->status); // no pagado: se cancela al instante
         $this->assertNull($order->invoice);
     }
 

@@ -94,7 +94,7 @@ class PurchaseFlowTest extends TestCase
         }
     }
 
-    public function test_declined_card_in_redsys_keeps_order_created(): void
+    public function test_declined_card_in_redsys_cancels_order_and_returns_to_cart(): void
     {
         $this->actingAsCustomer();
         $product = Product::doesntHave('variants')->first();
@@ -104,10 +104,10 @@ class PurchaseFlowTest extends TestCase
 
         $payment = $this->startRedsysPayment($order);
         $this->get(route('redsys.ko', $payment).'?'.http_build_query($this->redsysResponse($payment, '0190')))
-            ->assertRedirect(route('orders.pay', $order))
-            ->assertSessionHasErrors('payment');
+            ->assertRedirect(route('cart.show'))
+            ->assertSessionHasErrors('cart');
 
-        $this->assertSame(Order::CREATED, $order->fresh()->status);
+        $this->assertSame(Order::CANCELLED, $order->fresh()->status);
     }
 
     public function test_totals_apply_discount_shipping_and_vat(): void

@@ -37,15 +37,18 @@ class RedsysController extends Controller
     /** Vuelta del cliente desde Redsys tras un error o cancelación (urlKo). */
     public function ko(Request $request, Payment $payment, RedsysGateway $redsys)
     {
-        return $this->back($request, $payment, $redsys);
+        return $this->back($request, $payment, $redsys, cancelled: true);
     }
 
     /**
      * Redsys añade a la URL de vuelta la respuesta firmada: se procesa igual que la notificación
      * (idempotente). En local es la única forma de enterarse, porque Redsys no puede enviar
-     * notificaciones a localhost. Sin parámetros firmados no se cambia nada.
+     * notificaciones a localhost.
+     * Si el cliente vuelve por urlKo SIN respuesta firmada (canceló en la página de Redsys), el pago
+     * se da por cancelado y el pedido se cancela al instante (stock y carrito devueltos).
+     * Una urlOk sin firmar no cambia nada: el pago podría estar aprobándose.
      */
-    private function back(Request $request, Payment $payment, RedsysGateway $redsys)
+    private function back(Request $request, Payment $payment, RedsysGateway $redsys, bool $cancelled = false)
     {
         abort_unless($payment->order->isOwnedBy($request->user()), 404);
 
@@ -55,6 +58,8 @@ class RedsysController extends Controller
             } catch (Throwable $e) {
                 Log::warning('Retorno de Redsys rechazado: '.$e->getMessage());
             }
+        } elseif ($cancelled) {
+            $redsys->cancelByCustomer($payment);
         }
 
         $payment->refresh();
@@ -63,8 +68,10 @@ class RedsysController extends Controller
         return match ($payment->status) {
             Payment::APPROVED => redirect()->route('orders.show', $order)
                 ->with('status', 'Pago aprobado en el TPV de Redsys (entorno de pruebas). ¡Pedido registrado!'),
-            Payment::DECLINED => redirect()->route('orders.pay', $order)
-                ->withErrors(['payment' => "Redsys ha rechazado el pago (código {$payment->response_code}). Puedes intentarlo de nuevo."]),
+            // Pedido cancelado: los productos vuelven al carrito para que el cliente pueda reintentar
+            Payment::DECLINED => redirect()->route('cart.show')
+                ->withErrors(['cart' => 'El pago no se ha completado'.($payment->response_code ? " (código {$payment->response_code} de Redsys)" : ' (cancelado en Redsys)')
+                    ." y el pedido {$order->reference} se ha cancelado. Hemos devuelto los productos a tu carrito por si quieres volver a intentarlo."]),
             default => redirect()->route('orders.show', $order)
                 ->with('status', 'Estamos esperando la confirmación del pago de Redsys. El pedido se actualizará en cuanto llegue.'),
         };

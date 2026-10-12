@@ -352,3 +352,17 @@ Plantilla para cada entrada:
 - **Errores detectados:** ninguno.
 - **Cambios del grupo:** URL de producción y datos del hosting aportados por Abel.
 - **Validación:** `php artisan about --env=production` (entorno production, debug OFF, URL `www.piquantum.onl`, mail smtp, queue sync, logs daily) y comprobación de que la URL de notificación de Redsys queda en `https://www.piquantum.onl/pagos/redsys/notificacion`. **No** se ejecutó nada contra la base de datos de producción.
+
+### 2026-10-12 · Abel · Pago cancelado en Redsys: stock bloqueado
+- **Tarea (error detectado por Abel en producción):** tras cancelar en la página de Redsys, el pedido se quedaba en "Creado" con el stock bloqueado; además, Abel creyó que se había enviado la factura de un pedido no pagado.
+- **Análisis de la IA (sobre la base de datos de producción, solo lectura):** en el pedido `PQ-20261012-5Q4KQQ` hubo **dos intentos de pago**. El primero se canceló en Redsys y quedó "pendiente" (Redsys no devolvió respuesta firmada). El segundo, 22 segundos después, fue **aprobado** (código 0000), y por eso se emitió la factura y se envió el correo. **La factura era correcta.** El problema real era el primero: cancelar no cancelaba el pedido.
+- **Decisión de Abel (no de la IA):** si el pago se cancela o se rechaza, el pedido se **cancela al instante**, sin caducidad por tiempo.
+- **Partes asistidas:** la IA lo implementó a petición de Abel:
+  - `OrderService::cancelUnpaid()`: en una transacción, estado "cancelado" (devuelve el stock y registra el evento) y productos devueltos al carrito;
+  - `CartService::restoreOrder()`: escribe en el carrito guardado del cliente aunque no haya sesión, para que funcione desde la notificación de Redsys;
+  - `RedsysGateway::settle()`: un rechazo cancela el pedido; un aprobado de un pedido que ya no esperaba pago lo pasa a "Con incidencia";
+  - `RedsysGateway::cancelByCustomer()` y `RedsysController`: volver por `urlKo` sin respuesta firmada (el caso de Abel) cancela el pedido y lleva al carrito con un aviso;
+  - 4 tests nuevos (cancelar en Redsys, rechazo por notificación, `urlKo` tras aprobar, aprobado tras cancelar) y 4 tests adaptados a la regla nueva; README.
+- **Errores detectados en la IA:** la primera versión de `cancelUnpaid()` marcaba como rechazados **todos** los intentos pendientes del pedido. Si Redsys aprobaba después un intento de otra pestaña, ese cobro se habría **ignorado**. Lo detectó el test nuevo; ahora solo se marca el intento cancelado, y un aprobado tardío pasa el pedido a incidencia.
+- **Limitación aceptada:** si el cliente abandona Redsys sin volver a la tienda, el pedido sigue en "Creado" hasta que el back-office lo cancele (no hay caducidad).
+- **Validación:** `php artisan test` **90/90**.

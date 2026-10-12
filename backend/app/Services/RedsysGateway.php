@@ -6,6 +6,7 @@ use App\Exceptions\CheckoutException;
 use App\Models\Order;
 use App\Models\Payment;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Redsys\Endpoints;
 use Redsys\Merchant;
@@ -110,7 +111,7 @@ class RedsysGateway
                 'status' => $approved ? Payment::APPROVED : Payment::DECLINED,
                 'response_code' => $code,
                 'authorisation_code' => $params->authorisationCode ? trim((string) $params->authorisationCode) : null,
-                'card_last4' => $params->cardNumber ? substr(preg_replace('/\D/', '', (string) $params->cardNumber), -4) ?: null : null,
+                'card_last4' => $params->cardNumber ? (substr(preg_replace('/\D/', '', (string) $params->cardNumber), -4) ?: null) : null,
                 'gateway_response' => $params->toArrayOut(),
             ]);
 
@@ -125,12 +126,53 @@ class RedsysGateway
                 'amount' => (float) $payment->amount,
             ], $order->id);
 
-            // Solo se cobra el pedido si sigue esperando el pago
             if ($approved && $order->status === Order::CREATED) {
+                // Pago correcto: pagado → factura (y correo) → pendiente de preparación
                 $this->orders->markPaid($order, 'redsys');
+            } elseif ($approved) {
+                // Cobro aprobado de un pedido que ya no esperaba pago (cancelado o pagado por otro intento):
+                // no se pierde, queda como incidencia para que el back-office lo revise y lo devuelva
+                Log::warning("Pago aprobado en Redsys ({$payment->gateway_order}) para el pedido {$order->reference} en estado {$order->status}.");
+                if ($order->status !== Order::INCIDENT) {
+                    $this->orders->changeStatus($order, Order::INCIDENT, 'redsys');
+                }
+            } else {
+                // Rechazado o cancelado en Redsys: el pedido se cancela al instante (stock y carrito devueltos)
+                $this->orders->cancelUnpaid($order, 'redsys');
             }
 
             return $payment;
+        });
+    }
+
+    /**
+     * El cliente vuelve a urlKo sin respuesta firmada (canceló en la página de Redsys):
+     * el intento se da por cancelado y el pedido se cancela al instante.
+     */
+    public function cancelByCustomer(Payment $payment): void
+    {
+        DB::transaction(function () use ($payment) {
+            $payment = Payment::lockForUpdate()->findOrFail($payment->id);
+            if ($payment->status !== Payment::PENDING) {
+                return; // ya resuelto por la notificación o el retorno firmado
+            }
+
+            $payment->update(['status' => Payment::DECLINED]);
+            $order = $payment->order;
+
+            $this->events->log(EventLogger::PAYMENT_SIMULATED, [
+                'reference' => $order->reference,
+                'payment_reference' => $payment->reference,
+                'gateway' => 'redsys',
+                'gateway_order' => $payment->gateway_order,
+                'method' => $payment->method,
+                'status' => $payment->status,
+                'response_code' => null,
+                'cancelled_by_customer' => true,
+                'amount' => (float) $payment->amount,
+            ], $order->id);
+
+            $this->orders->cancelUnpaid($order, 'redsys');
         });
     }
 

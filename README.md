@@ -62,6 +62,8 @@ Integración por **redirección** con la librería oficial de Redsys (`backend/p
 
 1. **Inicio:** al elegir "Tarjeta", se crea un pago en estado `pending` con su número de pedido para Redsys (`gateway_order`, 12 dígitos, uno por intento). El cliente va al TPV con un formulario **firmado** (HMAC SHA-512) que incluye importe en céntimos, `urlOk`/`urlKo` y la URL de notificación.
 2. **Notificación** (`POST /pagos/redsys/notificacion`): Redsys envía el resultado firmado a la tienda. Se verifica la firma y que el importe coincide, y en una transacción se guarda el resultado. Si se aprueba (`Ds_Response` 0000-0099): pedido pagado, factura y pendiente de preparación. Está excluida de CSRF porque la llama el servidor de Redsys; la seguridad está en la firma.
+   - **Pago rechazado o cancelado** (en la notificación, en la vuelta firmada o al volver por `urlKo` tras pulsar "Cancelar" en Redsys): el pedido se **cancela al instante**, el **stock se devuelve** y los productos **vuelven al carrito** del cliente para que pueda reintentar. No se emite factura.
+   - Si llega un pago **aprobado** de un pedido que ya no esperaba pago (por ejemplo, cancelado en otra pestaña), el cobro no se pierde: el pedido pasa a **"Con incidencia"** para revisarlo y devolverlo desde el back-office.
 3. **Retorno** (`/pagos/redsys/{pago}/ok|ko`): Redsys devuelve al cliente con la misma respuesta firmada, que se procesa igual. Es **idempotente**: si llegan la notificación y el retorno, solo cuenta una vez. Una `urlOk` sin firmar no cambia nada.
 
 Configuración: `REDSYS_API_KEY` en `.env`. La de `.env.example` es la clave **pública** del comercio de pruebas de Redsys (999008881-001); un comercio real usaría la suya, sin subirla al repositorio. En el hosting, `APP_URL` debe ser la URL pública (https) para que Redsys pueda enviar las notificaciones. **En local**, Redsys no puede notificar a `localhost`, así que el pago se confirma con la respuesta firmada del retorno.
@@ -128,6 +130,7 @@ La tienda **nunca recibe el número de tarjeta**: se introduce en la página de 
 - El pago con tarjeta usa el TPV de Redsys en su **entorno de pruebas** (no se cobra nada); la transferencia, los envíos y los impuestos son **simulados**. Las facturas **no tienen validez fiscal** (empresa y CIF ficticios) y no hay facturas rectificativas: cancelar un pedido pagado no anula su factura.
 - El carrito de un invitado vive en la sesión y se pierde al caducar; solo se conserva si inicia sesión o se registra en esa visita.
 - El carrito no reserva stock: se avisa si una línea supera el stock actual y el checkout lo rechaza si no se corrige.
+- El stock se descuenta al crear el pedido. Si el pago se cancela o se rechaza, el pedido se cancela y el stock se libera al momento; pero si el cliente **abandona** la página de Redsys sin volver a la tienda, el pedido queda en "Creado" con el stock reservado hasta que el back-office lo cancele (no hay caducidad automática).
 - Un usuario dado de baja (soft delete) conserva su correo ocupado y no puede volver a registrarse con él.
 - El nombre y el correo de la cuenta no se pueden cambiar desde el área de cliente.
 - No se puede dar de baja una cuenta con pedidos en curso.

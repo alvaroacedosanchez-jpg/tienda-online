@@ -89,8 +89,9 @@ class EmailTest extends TestCase
         $this->notifyRedsys($declined, '0190');
         Mail::assertNotSent(OrderPaidMail::class);
 
-        $approved = $this->startRedsysPayment($order);
-        $this->notifyRedsys($approved, '0000');
+        // El rechazo cancela el pedido; el cliente reintenta con un pedido nuevo
+        $retry = $this->createdOrder();
+        $this->notifyRedsys($this->startRedsysPayment($retry), '0000');
         Mail::assertSent(OrderPaidMail::class, 1);
     }
 
