@@ -343,3 +343,12 @@ Plantilla para cada entrada:
   - 3 tests en `tests/Feature/DashboardTest.php`, entre ellos uno que falla si el seeder usa un estado que no existe.
 - **Efecto colateral:** con estados reales, Laura tiene pedidos de demostración "en preparación" y la regla de la baja se la bloquea (comportamiento correcto). Se ajustó el test de la baja para dejar antes todos sus pedidos terminados.
 - **Validación:** `php artisan test` 86/86; dashboard real como admin: cada pedido muestra su etiqueta y color ("Enviado", "Pendiente de preparación", "Creado"), y la facturación (183,05 €) y los pendientes (5) cuentan los pedidos reales.
+
+### 2026-10-12 · Abel · `.env` de producción
+- **Tarea:** preparar el `.env` del entorno productivo (`https://www.piquantum.onl`), con la base de datos del hosting que estaba comentada en el `.env` de desarrollo.
+- **Partes asistidas:** la IA generó `backend/.env.production`, ignorado por Git (`backend/.gitignore`), con un script que copia los secretos del `.env` (contraseñas de base de datos y correo, clave de Redsys) **sin mostrarlos**, y genera un `APP_KEY` nuevo solo para producción.
+  - Ajustes de producción: `APP_ENV=production`, `APP_DEBUG=false`, `APP_URL` con https, idioma `es`, logs diarios con nivel `warning`, `SESSION_SECURE_COOKIE=true`, `QUEUE_CONNECTION=sync` (no hay proceso de colas en el hosting), `SHOP_NOTIFY_EMAIL`.
+  - Se quitaron las variables que no se usan (Redis, Memcached, AWS).
+- **Errores detectados:** ninguno.
+- **Cambios del grupo:** URL de producción y datos del hosting aportados por Abel.
+- **Validación:** `php artisan about --env=production` (entorno production, debug OFF, URL `www.piquantum.onl`, mail smtp, queue sync, logs daily) y comprobación de que la URL de notificación de Redsys queda en `https://www.piquantum.onl/pagos/redsys/notificacion`. **No** se ejecutó nada contra la base de datos de producción.

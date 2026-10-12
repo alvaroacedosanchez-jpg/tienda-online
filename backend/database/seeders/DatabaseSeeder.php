@@ -21,7 +21,7 @@ class DatabaseSeeder extends Seeder
         // 1. Usuario de back-office de PRUEBA
         $admin = User::updateOrCreate(
             ['email' => 'admin@piquantum.test'],
-            ['name' => 'Administrador de prueba', 'password' => 'admin1234']
+            ['name' => 'Administrador', 'password' => 'admin1234']
         );
         $admin->is_admin = true;
         $admin->save();
