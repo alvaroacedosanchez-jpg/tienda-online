@@ -328,3 +328,18 @@ Plantilla para cada entrada:
 - **Errores detectados:** el `favicon.ico` original de Laravel estaba **vacío (0 bytes)**, por eso se veía el icono genérico del navegador. En la IA: la primera previsualización mostraba los iconos pequeños deformados por la propia página de previsualización (un `flex` que estiraba las imágenes), no por los archivos, que tenían el tamaño correcto.
 - **Cambios del grupo:** —
 - **Validación:** previsualización a 128, 32 y 16 px y simulación de pestaña clara y oscura con Chrome; los tres archivos se sirven correctamente (200, tipo MIME correcto) y aparecen enlazados en el HTML; `php artisan test` 83/83.
+
+### 2026-10-12 · Abel · Estados de pedido en el dashboard del back-office
+- **Tarea:** en el dashboard, el estado de algunos pedidos no se mostraba correctamente.
+- **Causa (código del equipo):**
+  - el dashboard comparaba con estados en inglés (`completed`, `pending`, `processing`) que no existen en la tienda; los estados reales están en `Order::STATUS_LABELS`. Cualquier pedido real salía con el texto en bruto y en rojo;
+  - el seeder creaba los pedidos de demostración con esos mismos estados inventados;
+  - por eso "Facturación total" y "Pedidos pendientes" no contaban los pedidos reales.
+- **Partes asistidas:** la IA lo corrigió a petición de Abel (directamente en `main`):
+  - la vista usa `statusLabel()` y la clase `badge-{estado}`, como el resto de la tienda;
+  - el controlador calcula los ingresos con la nueva constante `Order::PAID_STATUSES` (pagado, en preparación, enviado) y los pendientes con `Order::IN_PROGRESS`;
+  - el seeder usa las constantes `Order::SHIPPED` y `Order::PENDING_PREPARATION`;
+  - en la base de datos local se corrigieron los pedidos con estados inventados;
+  - 3 tests en `tests/Feature/DashboardTest.php`, entre ellos uno que falla si el seeder usa un estado que no existe.
+- **Efecto colateral:** con estados reales, Laura tiene pedidos de demostración "en preparación" y la regla de la baja se la bloquea (comportamiento correcto). Se ajustó el test de la baja para dejar antes todos sus pedidos terminados.
+- **Validación:** `php artisan test` 86/86; dashboard real como admin: cada pedido muestra su etiqueta y color ("Enviado", "Pendiente de preparación", "Creado"), y la facturación (183,05 €) y los pendientes (5) cuentan los pedidos reales.

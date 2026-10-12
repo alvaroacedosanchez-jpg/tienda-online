@@ -52,15 +52,8 @@
                 <td>{{ $order->customer->name ?? $order->shipping_name }}</td>
                 <td>{{ $order->created_at->format('d/m/Y H:i') }}</td>
                 <td>
-                    @if ($order->status === 'completed')
-                        <span class="badge badge-completed">Completado</span>
-                    @elseif ($order->status === 'pending')
-                        <span class="badge badge-pending">Pendiente</span>
-                    @elseif ($order->status === 'processing')
-                        <span class="badge badge-pending">En proceso</span>
-                    @else
-                        <span class="badge badge-cancelled">{{ $order->status }}</span>
-                    @endif
+                    {{-- Misma etiqueta y color que en el resto de la tienda (Order::STATUS_LABELS) --}}
+                    <span class="badge badge-{{ $order->status }}">{{ $order->statusLabel() }}</span>
                 </td>
                 <td><strong>{{ number_format($order->total, 2, ',', '.') }} €</strong></td>
                 <td>

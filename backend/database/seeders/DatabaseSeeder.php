@@ -140,7 +140,7 @@ class DatabaseSeeder extends Seeder
             [
                 'customer' => $customers['laura@example.com'],
                 'reference' => 'PED-2026-0001',
-                'status' => 'completed',
+                'status' => Order::SHIPPED,
                 'created_at' => now()->subDays(7),
                 'items' => [
                     [
@@ -158,7 +158,7 @@ class DatabaseSeeder extends Seeder
             [
                 'customer' => $customers['carlos@example.com'],
                 'reference' => 'PED-2026-0002',
-                'status' => 'pending',
+                'status' => Order::PENDING_PREPARATION,
                 'created_at' => now()->subDays(3),
                 'items' => [
                     [
@@ -176,7 +176,7 @@ class DatabaseSeeder extends Seeder
             [
                 'customer' => $customers['marta@example.com'],
                 'reference' => 'PED-2026-0003',
-                'status' => 'completed',
+                'status' => Order::SHIPPED,
                 'created_at' => now()->subDays(1),
                 'items' => [
                     [
@@ -189,7 +189,7 @@ class DatabaseSeeder extends Seeder
             [
                 'customer' => $customers['laura@example.com'],
                 'reference' => 'PED-2026-0004',
-                'status' => 'pending',
+                'status' => Order::PENDING_PREPARATION,
                 'created_at' => now()->subHours(4),
                 'items' => [
                     [

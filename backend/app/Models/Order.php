@@ -25,6 +25,9 @@ class Order extends Model
         self::INCIDENT => 'Con incidencia',
     ];
 
+    /** Estados de un pedido ya cobrado (cuentan como ingresos). */
+    public const PAID_STATUSES = [self::PAID, self::PENDING_PREPARATION, self::SHIPPED];
+
     /** Estados de un pedido que aún no ha terminado (ni enviado ni cancelado). */
     public const IN_PROGRESS = [self::CREATED, self::PAID, self::PENDING_PREPARATION, self::INCIDENT];
 

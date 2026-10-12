@@ -190,7 +190,8 @@ class AccountTest extends TestCase
     {
         $user = $this->login();
         $order = $this->buy();
-        $order->update(['status' => Order::SHIPPED]);
+        // Todos sus pedidos terminados (incluidos los de demostración del seeder), para que la baja esté permitida
+        $user->orders()->update(['status' => Order::SHIPPED]);
 
         $this->delete(route('account.destroy'), ['current_password' => 'incorrecta'])
             ->assertSessionHasErrorsIn('delete', 'current_password');

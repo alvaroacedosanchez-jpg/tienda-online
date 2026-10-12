@@ -12,12 +12,12 @@ class DashboardController extends Controller
 {
     public function index()
     {
-        // 1. Ingresos totales por pedidos completados
-        $totalRevenue = Order::where('status', 'completed')->sum('total');
+        // 1. Ingresos: pedidos cobrados (pagados, en preparación o enviados)
+        $totalRevenue = Order::whereIn('status', Order::PAID_STATUSES)->sum('total');
 
-        // 2. Conteo general de pedidos y pedidos que requieren atención
+        // 2. Conteo general de pedidos y pedidos que requieren atención (sin terminar)
         $totalOrders = Order::count();
-        $pendingOrders = Order::whereIn('status', ['pending', 'processing'])->count();
+        $pendingOrders = Order::whereIn('status', Order::IN_PROGRESS)->count();
 
         // 3. Conteo de clientes registrados
         $totalCustomers = Customer::count();
