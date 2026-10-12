@@ -16,5 +16,5 @@
     </div>
     <button class="btn" type="submit">Entrar</button>
 </form>
-<p>¿No tienes cuenta?<a href="{{ route('register.create') }}">Crea una</a></p>
+<p>¿No tienes cuenta?<a href="{{ route('register.create') }}"> Crea una</a></p>
 @endsection
