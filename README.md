@@ -4,7 +4,7 @@
 > Asignatura: Soluciones Informáticas para la Empresa · Tarea 1.
 
 Tienda online de salsas picantes (empresa ficticia **Piquantum**) hecha con **Laravel (PHP) + Blade + MariaDB/MySQL**.
-Genera pedidos y **eventos de negocio** que otro sistema podrá consumir en la Tarea 2.
+Genera pedidos y eventos de negocio.
 
 ## Funcionalidad
 
@@ -14,7 +14,6 @@ Genera pedidos y **eventos de negocio** que otro sistema podrá consumir en la T
 - Cuentas de cliente: registro, inicio y cierre de sesión. Para comprar hay que tener cuenta.
 - Área de cliente (`/mi-cuenta`): pedidos en curso y anteriores, facturas en PDF, cambio de contraseña, dirección por defecto y baja de la cuenta.
 - Facturas con numeración correlativa por año (`FAC-2026-0001`), emitidas en la misma transacción que el pago aprobado.
-- Imagen de cada salsa y de cada tamaño (ilustraciones SVG generadas con `php artisan piquantum:product-images`). En la ficha, al elegir otro tamaño cambian la imagen, el precio y el stock. Se pueden sustituir por fotos reales cambiando la columna `image` de `products` o `product_variants`.
 - Checkout con validación y pedido con referencia única (`PQ-YYYYMMDD-XXXXXX`). Pago con **tarjeta en el TPV Virtual de Redsys (entorno de pruebas)** o por **transferencia simulada**. Pedido, líneas, stock, ficha de cliente y eventos se guardan en una única transacción: si un paso falla, no se guarda nada.
 - Cada pedido guarda su propia dirección de envío (copia histórica) y solo lo puede ver y pagar su dueño.
 - Estados de pedido: `creado → pagado_simulado → pendiente_preparacion → enviado`, además de `cancelado` e `incidencia`.
@@ -136,6 +135,3 @@ La tienda **nunca recibe el número de tarjeta**: se introduce en la página de 
 - Sin pruebas de carga ni gestión de concurrencia avanzada (solo bloqueo de stock en el pedido).
 - Las imágenes de producto son ilustraciones SVG generadas por código, no fotografías.
 
-## Punto de partida y uso de IA
-
-_Completar para la memoria (obligatorio): proyecto Laravel generado con `composer create-project`; la implementación de la tienda fue asistida por IA generativa (Claude). Documentar en el anexo qué se generó, errores detectados, cambios del grupo y cómo se validó._
