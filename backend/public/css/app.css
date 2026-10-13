@@ -81,3 +81,8 @@ nav[role=navigation] svg{width:20px;height:20px}
 .mt{margin-top:24px}
 .line-product{display:flex;align-items:center;gap:10px}.line-product .right{margin-left:auto}
 .line-thumb{width:40px;height:40px;object-fit:contain;border-radius:6px;background:#fafafa;flex-shrink:0}
+.legal{max-width:760px}.legal h2{margin-top:28px;font-size:1.15rem}.legal li{margin-bottom:6px}
+.skip-link{position:absolute;left:-9999px;top:0;background:#fff;color:var(--brand-dark);padding:8px 14px;z-index:100;border-radius:0 0 8px 0}
+.skip-link:focus{left:0}
+.footer-links a{margin-right:16px}
+.error-page{text-align:center;padding-top:80px}.error-code{font-size:4rem;font-weight:800;color:var(--brand);margin:0}

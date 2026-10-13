@@ -1,0 +1,62 @@
+[33mcommit 9a364153ff82f6f15b51ecb7b4ae6ea5d0f8e57c[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mfeature/tienda-completa[m[33m, [m[1;31morigin/feature/tienda-completa[m[33m)[m
+Author: alvaro <alvaroacedosanchez@gmail.com>
+Date:   Thu Oct 8 21:04:43 2026 +0200
+
+    Añade tienda completa: catálogo, carrito, checkout, pedidos, eventos y back-office
+
+ README.md                                                                        |  95 [32m++++++[m[31m-[m
+ backend/.env.example                                                             |   8 [32m+[m[31m-[m
+ backend/app/Http/Controllers/Admin/AuthController.php                            |  42 [32m+++[m
+ backend/app/Http/Controllers/Admin/EventController.php                           |  61 [32m+++++[m
+ backend/app/Http/Controllers/Admin/OrderController.php                           |  42 [32m+++[m
+ backend/app/Http/Controllers/Admin/TicketController.php                          |  16 [32m++[m
+ backend/app/Http/Controllers/CartController.php                                  |  61 [32m+++++[m
+ backend/app/Http/Controllers/CheckoutController.php                              |  89 [32m++++++[m
+ backend/app/Http/Controllers/OrderController.php                                 |  13 [32m+[m
+ backend/app/Http/Controllers/ShopController.php                                  |  51 [32m++++[m
+ backend/app/Http/Controllers/SupportController.php                               |  51 [32m++++[m
+ backend/app/Http/Middleware/EnsureAdmin.php                                      |  20 [32m++[m
+ backend/app/Models/Category.php                                                  |  16 [32m++[m
+ backend/app/Models/Customer.php                                                  |  16 [32m++[m
+ backend/app/Models/Event.php                                                     |  17 [32m++[m
+ backend/app/Models/Order.php                                                     |  79 [32m++++++[m
+ backend/app/Models/OrderItem.php                                                 |  26 [32m++[m
+ backend/app/Models/Payment.php                                                   |  21 [32m++[m
+ backend/app/Models/Product.php                                                   |  25 [32m++[m
+ backend/app/Models/SupportTicket.php                                             |  16 [32m++[m
+ backend/app/Models/User.php                                                      |   3 [32m+[m[31m-[m
+ backend/app/Providers/AppServiceProvider.php                                     |   4 [32m+[m[31m-[m
+ backend/app/Services/CartService.php                                             | 121 [32m+++++++++[m
+ backend/app/Services/EventLogger.php                                             |  36 [32m+++[m
+ backend/app/Services/OrderService.php                                            | 112 [32m++++++++[m
+ backend/app/Services/PaymentSimulator.php                                        |  50 [32m++++[m
+ backend/bootstrap/app.php                                                        |   2 [32m+[m[31m-[m
+ backend/composer.json                                                            |   3 [32m+[m
+ backend/composer.lock                                                            | 572 [32m+++++++++++++++++++++++[m[31m----------------[m
+ backend/config/app.php                                                           |   2 [32m+[m[31m-[m
+ backend/config/shop.php                                                          |  18 [32m++[m
+ backend/database/migrations/2026_10_08_100000_create_catalog_tables.php          |  41 [32m+++[m
+ backend/database/migrations/2026_10_08_100100_create_order_tables.php            |  67 [32m+++++[m
+ .../database/migrations/2026_10_08_100200_create_events_and_support_tables.php   |  44 [32m+++[m
+ backend/database/seeders/DatabaseSeeder.php                                      |  72 [32m++++[m[31m-[m
+ backend/public/css/app.css                                                       |  76 [32m++++++[m
+ backend/resources/views/admin/events/index.blade.php                             |  36 [32m+++[m
+ backend/resources/views/admin/login.blade.php                                    |  19 [32m++[m
+ backend/resources/views/admin/orders/index.blade.php                             |  31 [32m+++[m
+ backend/resources/views/admin/orders/show.blade.php                              |  53 [32m++++[m
+ backend/resources/views/admin/tickets/index.blade.php                            |  25 [32m++[m
+ backend/resources/views/cart/index.blade.php                                     |  49 [32m++++[m
+ backend/resources/views/checkout/pay.blade.php                                   |  40 [32m+++[m
+ backend/resources/views/checkout/show.blade.php                                  |  50 [32m++++[m
+ backend/resources/views/layouts/app.blade.php                                    |  46 [32m++++[m
+ backend/resources/views/orders/show.blade.php                                    |  33 [32m+++[m
+ backend/resources/views/partials/admin-nav.blade.php                             |   6 [32m+[m
+ backend/resources/views/partials/product-card.blade.php                          |   9 [32m+[m
+ backend/resources/views/partials/summary.blade.php                               |  13 [32m+[m
+ backend/resources/views/shop/catalog.blade.php                                   |  21 [32m++[m
+ backend/resources/views/shop/home.blade.php                                      |  31 [32m+++[m
+ backend/resources/views/shop/product.blade.php                                   |  48 [32m++++[m
+ backend/resources/views/support/create.blade.php                                 |  28 [32m++[m
+ backend/routes/web.php                                                           |  46 [32m+++[m[31m-[m
+ backend/tests/Feature/PurchaseFlowTest.php                                       | 141 [32m++++++++++[m
+ 55 files changed, 2461 insertions(+), 252 deletions(-)
