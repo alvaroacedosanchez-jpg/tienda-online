@@ -57,6 +57,9 @@ Route::middleware(['auth', 'customer'])->group(function () {
 // Notificación del TPV de Redsys (la llama su servidor: sin sesión ni CSRF, se valida por firma)
 Route::post('/pagos/redsys/notificacion', [RedsysController::class, 'notify'])->name('redsys.notify');
 
+// Información de privacidad del prototipo
+Route::view('/privacidad', 'legal.privacy')->name('privacy');
+
 // Soporte
 Route::get('/soporte', [SupportController::class, 'create'])->name('support.create');
 Route::post('/soporte', [SupportController::class, 'store'])->name('support.store');

@@ -81,3 +81,4 @@ nav[role=navigation] svg{width:20px;height:20px}
 .mt{margin-top:24px}
 .line-product{display:flex;align-items:center;gap:10px}.line-product .right{margin-left:auto}
 .line-thumb{width:40px;height:40px;object-fit:contain;border-radius:6px;background:#fafafa;flex-shrink:0}
+.legal{max-width:760px}.legal h2{margin-top:28px;font-size:1.15rem}.legal li{margin-bottom:6px}
