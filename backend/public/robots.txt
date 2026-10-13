@@ -1,2 +1,8 @@
 User-agent: *
-Disallow:
+# Zonas privadas o sin interés para buscadores: back-office, cuenta del cliente,
+# pedidos, checkout y retorno/notificación del TPV.
+Disallow: /admin
+Disallow: /mi-cuenta
+Disallow: /pedido
+Disallow: /checkout
+Disallow: /pagos
