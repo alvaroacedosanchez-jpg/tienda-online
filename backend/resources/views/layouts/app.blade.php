@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>@yield('title', 'Inicio') · {{ config('shop.name') }}</title>
+    <meta name="description" content="{{ config('shop.name') }}: {{ config('shop.tagline') }}. Prototipo académico sin actividad comercial real.">
     {{-- Icono de la tienda: SVG para navegadores modernos, ICO de respaldo y PNG para la pantalla de inicio del móvil --}}
     <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
     <link rel="icon" href="{{ asset('favicon.ico') }}" sizes="32x32">
@@ -12,6 +13,7 @@
     <link rel="stylesheet" href="{{ asset('css/app.css') }}">
 </head>
 <body>
+<a class="skip-link" href="#contenido">Saltar al contenido</a>
 <div class="banner" role="note">
     ⚠️ Prototipo académico sin actividad comercial real. No introduzcas datos personales reales: los pagos son simulados y los productos no se envían.
 </div>
@@ -42,7 +44,7 @@
     </div>
 </header>
 
-<main class="container">
+<main id="contenido" class="container">
     @if (session('status'))
         <div class="alert alert-ok" role="status">{{ session('status') }}</div>
     @endif
@@ -55,6 +57,10 @@
 <footer class="site-footer">
     <div class="container">
         <p>{{ config('shop.name') }} — proyecto académico (Soluciones Informáticas para la Empresa). Datos ficticios. Sin pagos ni envíos reales.</p>
+        <nav aria-label="Información" class="footer-links">
+            <a href="{{ route('privacy') }}">Privacidad y datos</a>
+            <a href="{{ route('support.create') }}">Soporte</a>
+        </nav>
     </div>
 </footer>
 @stack('scripts')
