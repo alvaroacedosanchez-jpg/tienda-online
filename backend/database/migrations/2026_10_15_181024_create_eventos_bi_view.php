@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\Order;
+use App\Models\Payment;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 
@@ -7,6 +9,15 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // estado_texto se genera desde las constantes de los modelos (única fuente de verdad).
+        // Los códigos de pedido y de pago no se repiten, así que caben en un solo CASE.
+        // Si cambian los textos, hay que volver a crear la vista.
+        $pdo = DB::getPdo();
+        $whens = '';
+        foreach (Order::STATUS_LABELS + Payment::STATUS_LABELS as $code => $label) {
+            $whens .= 'WHEN '.$pdo->quote($code).' THEN '.$pdo->quote($label).' ';
+        }
+
         DB::statement("
             CREATE VIEW eventos_bi AS
             SELECT 
@@ -46,19 +57,7 @@ return new class extends Migration
                 e.status AS estado,
                 e.previous_status AS estado_anterior,
                 e.origin AS origen,
-                CASE COALESCE(e.status, '')
-                    WHEN 'approved' THEN 'Aprobado'
-                    WHEN 'declined' THEN 'Rechazado'
-                    WHEN 'pending' THEN 'Pendiente'
-                    WHEN 'completed' THEN 'Completado'
-                    WHEN 'cancelled' THEN 'Cancelado'
-                    WHEN 'creado' THEN 'Creado'
-                    WHEN 'pagado' THEN 'Pagado'
-                    WHEN 'pendiente_preparacion' THEN 'Pendiente de preparación'
-                    WHEN 'enviado' THEN 'Enviado'
-                    WHEN 'incidencia' THEN 'Incidencia'
-                    ELSE e.status
-                END AS estado_texto,
+                CASE e.status {$whens}ELSE e.status END AS estado_texto,
                 e.payment_method AS metodo_pago,
                 e.gateway AS pasarela,
                 e.response_code AS codigo_respuesta,

@@ -17,6 +17,13 @@ class Payment extends Model
 
     public const DECLINED = 'declined';
 
+    /** Textos de cada estado: los usan el back-office y la vista eventos_bi. */
+    public const STATUS_LABELS = [
+        self::PENDING => 'Pendiente de confirmación',
+        self::APPROVED => 'Aprobado',
+        self::DECLINED => 'Rechazado',
+    ];
+
     protected $guarded = [];
 
     protected function casts(): array
@@ -40,11 +47,6 @@ class Payment extends Model
 
     public function statusLabel(): string
     {
-        return match ($this->status) {
-            self::PENDING => 'pendiente de confirmación',
-            self::APPROVED => 'aprobado',
-            self::DECLINED => 'rechazado',
-            default => $this->status,
-        };
+        return self::STATUS_LABELS[$this->status] ?? $this->status;
     }
 }
