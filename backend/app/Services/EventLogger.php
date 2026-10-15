@@ -4,10 +4,10 @@ namespace App\Services;
 
 use App\Models\Event;
 use App\Models\User;
+use InvalidArgumentException;
 
 /**
  * Registra eventos de negocio en la tabla `events`.
- * Otro sistema (Tarea 2) puede consumirlos vía /admin/eventos.json o /admin/eventos.csv.
  */
 class EventLogger
 {
@@ -22,30 +22,61 @@ class EventLogger
     public const SUPPORT_REQUESTED = 'support.requested';
     public const INVOICE_ISSUED = 'invoice.issued';
 
-    public function log(string $type, array $payload = [], ?int $orderId = null): Event
+    /**
+     * Columnas permitidas en la tabla `events`.
+     */
+    protected const ALLOWED_COLUMNS = [
+        'order_id',
+        'product_id',
+        'product_variant_id',
+        'payment_id',
+        'invoice_id',
+        'support_ticket_id',
+        'quantity',
+        'previous_quantity',
+        'unit_price',
+        'amount',
+        'status',
+        'previous_status',
+        'origin',
+        'payment_method',
+        'gateway',
+        'response_code',
+        'discount_code',
+    ];
+
+    /**
+     * Registra un evento con columnas tipadas y detalles opcionales en payload.
+     */
+    public static function log(string $type, array $columns = [], array$details = []): Event
     {
+        // Validar lista blanca de columnas (2º argumento)
+        foreach (array_keys($columns) as$column) {
+            if (! in_array($column, self::ALLOWED_COLUMNS, true)) {
+                throw new InvalidArgumentException("Columna no permitida en events: {$column}");
+            }
+        }
+
         $sessionId = null;
         if (app()->bound('request') && request()->hasSession()) {
             $sessionId = request()->session()->getId();
         }
 
-        return Event::create([
-            'type' => $type,
-            'session_id' => $sessionId,
-            // Quién provocó el evento: el cliente conectado, el admin en el back-office o null si es un invitado
-            'user_id' => auth()->id(),
-            'order_id' => $orderId,
-            'payload' => $payload,
+        $data = array_merge($columns, [
+            'type'        => $type,
+            'session_id'  => $sessionId,
+            'user_id'     => auth()->id(),
+            'payload'     => ! empty($details) ?$details : null,
             'occurred_at' => now(),
         ]);
+
+        return Event::create($data);
     }
 
     /**
-     * Al iniciar sesión o registrarse, asigna al usuario los eventos que hizo como
-     * invitado en esa misma visita. Hay que llamarlo con el id de sesión ANTERIOR
-     * a session()->regenerate(), porque después cambia.
+     * Asigna a un usuario los eventos que hizo como invitado en esa misma visita.
      */
-    public function adoptGuestEvents(string $guestSessionId, User $user): int
+    public static function adoptGuestEvents(string $guestSessionId, User$user): int
     {
         return Event::where('session_id', $guestSessionId)
             ->whereNull('user_id')

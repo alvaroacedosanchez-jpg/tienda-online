@@ -8,15 +8,6 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('events', function (Blueprint $table) {
-            $table->id();
-            $table->string('type')->index();
-            $table->string('session_id')->nullable()->index();
-            $table->unsignedBigInteger('order_id')->nullable()->index();
-            $table->json('payload')->nullable();
-            $table->timestamp('occurred_at')->useCurrent()->index();
-        });
-
         Schema::create('support_tickets', function (Blueprint $table) {
             $table->id();
             $table->foreignId('order_id')->nullable()->constrained()->nullOnDelete();
