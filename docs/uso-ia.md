@@ -399,3 +399,4 @@ Plantilla para cada entrada:
   - migraciones y vista comprobadas en SQLite en memoria: estados traducidos ("Cancelado", "Pagado (simulado)", "Aprobado"…) y método, pasarela y código de descuento sacados por relación tras un pago simulado;
   - **falta comprobarlo en la MariaDB local** (Docker estaba parado) y repetir `migrate:fresh --seed` en producción.
 - **Pendiente:** `EventColumnsTest` y la documentación del plan (diccionario de datos y conexión con Power BI).
+
