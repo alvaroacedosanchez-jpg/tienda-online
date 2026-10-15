@@ -117,9 +117,9 @@ class OrderService
             $this->events->log(
                 EventLogger::ORDER_CREATED,
                 [
-                    'order_id'      => $order->id,
-                    'quantity'      => $items->sum('quantity'),
-                    'amount'        => (float) $order->total,
+                    'order_id' => $order->id,
+                    'quantity' => $items->sum('quantity'),
+                    'amount' => (float) $order->total,
                 ],
                 [
                     'reference' => $order->reference,
@@ -142,12 +142,12 @@ class OrderService
         $this->events->log(
             EventLogger::INVOICE_ISSUED,
             [
-                'order_id'   => $order->id,
+                'order_id' => $order->id,
                 'invoice_id' => $invoice->id,
-                'amount'     => (float) $invoice->total,
+                'amount' => (float) $invoice->total,
             ],
             [
-                'reference'      => $order->reference,
+                'reference' => $order->reference,
                 'invoice_number' => $invoice->number,
             ]
         );
@@ -200,10 +200,10 @@ class OrderService
             $this->events->log(
                 EventLogger::ORDER_STATUS_CHANGED,
                 [
-                    'order_id'        => $order->id,
+                    'order_id' => $order->id,
                     'previous_status' => $old,
-                    'status'          => $newStatus,
-                    'origin'          => $origin,
+                    'status' => $newStatus,
+                    'origin' => $origin,
                 ],
                 [
                     'reference' => $order->reference,

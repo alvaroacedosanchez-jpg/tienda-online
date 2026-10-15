@@ -26,7 +26,7 @@ class CheckoutController extends Controller
             EventLogger::CHECKOUT_STARTED,
             [
                 'quantity' => $cart->count(),
-                'amount'   => $summary['total'],
+                'amount' => $summary['total'],
             ]
         );
 

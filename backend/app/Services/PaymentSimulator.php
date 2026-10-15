@@ -33,13 +33,13 @@ class PaymentSimulator
             $this->events->log(
                 EventLogger::PAYMENT_SIMULATED,
                 [
-                    'order_id'       => $order->id,
-                    'payment_id'     => $payment->id,
-                    'status'         => $payment->status,
-                    'amount'         => (float) $payment->amount,
+                    'order_id' => $order->id,
+                    'payment_id' => $payment->id,
+                    'status' => $payment->status,
+                    'amount' => (float) $payment->amount,
                 ],
                 [
-                    'reference'         => $order->reference,
+                    'reference' => $order->reference,
                     'payment_reference' => $payment->reference,
                 ]
             );

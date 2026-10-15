@@ -12,14 +12,23 @@ use InvalidArgumentException;
 class EventLogger
 {
     public const PRODUCT_VIEWED = 'product.viewed';
+
     public const CART_ITEM_ADDED = 'cart.item_added';
+
     public const CART_ITEM_UPDATED = 'cart.item_updated';
+
     public const CART_ITEM_REMOVED = 'cart.item_removed';
+
     public const CHECKOUT_STARTED = 'checkout.started';
+
     public const ORDER_CREATED = 'order.created';
+
     public const PAYMENT_SIMULATED = 'payment.simulated';
+
     public const ORDER_STATUS_CHANGED = 'order.status_changed';
+
     public const SUPPORT_REQUESTED = 'support.requested';
+
     public const INVOICE_ISSUED = 'invoice.issued';
 
     /**
@@ -44,10 +53,10 @@ class EventLogger
     /**
      * Registra un evento con columnas tipadas y detalles opcionales en payload.
      */
-    public static function log(string $type, array $columns = [], array$details = []): Event
+    public static function log(string $type, array $columns = [], array $details = []): Event
     {
         // Validar lista blanca de columnas (2º argumento)
-        foreach (array_keys($columns) as$column) {
+        foreach (array_keys($columns) as $column) {
             if (! in_array($column, self::ALLOWED_COLUMNS, true)) {
                 throw new InvalidArgumentException("Columna no permitida en events: {$column}");
             }
@@ -59,10 +68,10 @@ class EventLogger
         }
 
         $data = array_merge($columns, [
-            'type'        => $type,
-            'session_id'  => $sessionId,
-            'user_id'     => auth()->id(),
-            'payload'     => ! empty($details) ?$details : null,
+            'type' => $type,
+            'session_id' => $sessionId,
+            'user_id' => auth()->id(),
+            'payload' => ! empty($details) ? $details : null,
             'occurred_at' => now(),
         ]);
 
@@ -72,7 +81,7 @@ class EventLogger
     /**
      * Asigna a un usuario los eventos que hizo como invitado en esa misma visita.
      */
-    public static function adoptGuestEvents(string $guestSessionId, User$user): int
+    public static function adoptGuestEvents(string $guestSessionId, User $user): int
     {
         return Event::where('session_id', $guestSessionId)
             ->whereNull('user_id')

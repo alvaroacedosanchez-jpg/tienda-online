@@ -35,9 +35,9 @@ class Event extends Model
 
     protected $casts = [
         'occurred_at' => 'datetime',
-        'unit_price'  => 'decimal:2',
-        'amount'      => 'decimal:2',
-        'payload'     => 'array',
+        'unit_price' => 'decimal:2',
+        'amount' => 'decimal:2',
+        'payload' => 'array',
     ];
 
     public function user(): BelongsTo

@@ -31,37 +31,37 @@ class EventController extends Controller
             ->orderBy('id')
             ->get()
             ->map(fn (Event $e) => [
-                'id'                 => $e->id,
-                'occurred_at'        => $e->occurred_at?->toIso8601String(),
-                'type'               => $e->type,
-                'session_id'         => $e->session_id,
-                'user_id'            => $e->user_id,
-                'user_name'          => $e->user?->name,
-                'user_email'         => $e->user?->email,
-                'order_id'           => $e->order_id,
-                'order_reference'    => $e->order?->reference,
-                'product_id'         => $e->product_id,
-                'product_name'       => $e->product?->name,
-                'product_sku'        => $e->product?->sku,
+                'id' => $e->id,
+                'occurred_at' => $e->occurred_at?->toIso8601String(),
+                'type' => $e->type,
+                'session_id' => $e->session_id,
+                'user_id' => $e->user_id,
+                'user_name' => $e->user?->name,
+                'user_email' => $e->user?->email,
+                'order_id' => $e->order_id,
+                'order_reference' => $e->order?->reference,
+                'product_id' => $e->product_id,
+                'product_name' => $e->product?->name,
+                'product_sku' => $e->product?->sku,
                 'product_variant_id' => $e->product_variant_id,
-                'variant_size'       => $e->variant?->size,
-                'quantity'           => $e->quantity,
-                'previous_quantity'  => $e->previous_quantity,
-                'unit_price'         => $e->unit_price,
-                'amount'             => $e->amount,
-                'status'             => $e->status,
-                'previous_status'    => $e->previous_status,
-                'origin'             => $e->origin,
-                'payment_id'         => $e->payment_id,
-                'payment_method'     => $e->payment?->method,
-                'gateway'            => $e->payment?->gateway(),
-                'response_code'      => $e->payment?->response_code,
-                'invoice_id'         => $e->invoice_id,
-                'invoice_number'     => $e->invoice?->number,
-                'support_ticket_id'  => $e->support_ticket_id,
-                'ticket_subject'     => $e->ticket?->subject,
-                'discount_code'      => $e->order?->discount_code,
-                'payload'            => $e->payload,
+                'variant_size' => $e->variant?->size,
+                'quantity' => $e->quantity,
+                'previous_quantity' => $e->previous_quantity,
+                'unit_price' => $e->unit_price,
+                'amount' => $e->amount,
+                'status' => $e->status,
+                'previous_status' => $e->previous_status,
+                'origin' => $e->origin,
+                'payment_id' => $e->payment_id,
+                'payment_method' => $e->payment?->method,
+                'gateway' => $e->payment?->gateway(),
+                'response_code' => $e->payment?->response_code,
+                'invoice_id' => $e->invoice_id,
+                'invoice_number' => $e->invoice?->number,
+                'support_ticket_id' => $e->support_ticket_id,
+                'ticket_subject' => $e->ticket?->subject,
+                'discount_code' => $e->order?->discount_code,
+                'payload' => $e->payload,
             ]);
 
         return response()->json(['count' => $events->count(), 'events' => $events], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
@@ -76,7 +76,7 @@ class EventController extends Controller
 
         return response()->streamDownload(function () use ($events) {
             $out = fopen('php://output', 'w');
-            fputs($out, "\xEF\xBB\xBF"); // BOM UTF-8 para Excel/Power BI
+            fwrite($out, "\xEF\xBB\xBF"); // BOM UTF-8 para Excel/Power BI
 
             fputcsv($out, [
                 'id',

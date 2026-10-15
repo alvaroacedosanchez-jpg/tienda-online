@@ -45,10 +45,10 @@ class SupportController extends Controller
             EventLogger::SUPPORT_REQUESTED,
             [
                 'support_ticket_id' => $ticket->id,
-                'order_id'          => $order?->id,
+                'order_id' => $order?->id,
             ],
             [
-                'subject'         => $ticket->subject,
+                'subject' => $ticket->subject,
                 'order_reference' => $order?->reference,
             ]
         );

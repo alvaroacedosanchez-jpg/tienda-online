@@ -15,7 +15,7 @@ class CartController extends Controller
     public function show(CartService $cart)
     {
         return view('cart.index', [
-            'items'   => $cart->items(),
+            'items' => $cart->items(),
             'summary' => $cart->summary(),
         ]);
     }
@@ -27,19 +27,19 @@ class CartController extends Controller
 
         $hasVariants = $product->variants()->exists();
         $data = $request->validate([
-            'quantity'   => ['nullable', 'integer', 'min:1', 'max:10'],
+            'quantity' => ['nullable', 'integer', 'min:1', 'max:10'],
             'variant_id' => [
                 $hasVariants ? 'required' : 'prohibited',
                 Rule::exists('product_variants', 'id')->where('product_id', $product->id),
             ],
         ], [
-            'variant_id.required'   => 'Elige un tamaño.',
-            'variant_id.exists'     => 'El tamaño elegido no es válido para este producto.',
+            'variant_id.required' => 'Elige un tamaño.',
+            'variant_id.exists' => 'El tamaño elegido no es válido para este producto.',
             'variant_id.prohibited' => 'Este producto no tiene tamaños.',
         ]);
 
         $quantity = (int) ($data['quantity'] ?? 1);
-        $variant = !empty($data['variant_id']) ? ProductVariant::find($data['variant_id']) : null;
+        $variant = ! empty($data['variant_id']) ? ProductVariant::find($data['variant_id']) : null;
         $itemLabel = $variant ? "«{$product->name} ({$variant->size})»" : "«{$product->name}»";
 
         if (($variant ?? $product)->stock <= 0) {
@@ -58,17 +58,17 @@ class CartController extends Controller
         $events->log(
             EventLogger::CART_ITEM_ADDED,
             [
-                'product_id'         => $product->id,
+                'product_id' => $product->id,
                 'product_variant_id' => $variant?->id,
-                'quantity'           => $added,
-                'unit_price'         => $unitPrice,
-                'amount'             => round($added * $unitPrice, 2),
+                'quantity' => $added,
+                'unit_price' => $unitPrice,
+                'amount' => round($added * $unitPrice, 2),
             ],
             [
-                'sku'                => $product->sku,
-                'size'               => $variant?->size,
+                'sku' => $product->sku,
+                'size' => $variant?->size,
                 'requested_quantity' => $quantity,
-                'cart_units'         => $cart->count(),
+                'cart_units' => $cart->count(),
             ]
         );
 
@@ -92,10 +92,10 @@ class CartController extends Controller
             $events->log(
                 EventLogger::CART_ITEM_UPDATED,
                 [
-                    'product_id'         => $before['product_id'],
+                    'product_id' => $before['product_id'],
                     'product_variant_id' => $before['variant_id'],
-                    'quantity'           => $after['quantity'],
-                    'previous_quantity'  => $before['quantity'],
+                    'quantity' => $after['quantity'],
+                    'previous_quantity' => $before['quantity'],
                 ],
                 [
                     'cart_units' => $cart->count(),
@@ -125,9 +125,9 @@ class CartController extends Controller
         $events->log(
             EventLogger::CART_ITEM_REMOVED,
             [
-                'product_id'         => $line['product_id'],
+                'product_id' => $line['product_id'],
                 'product_variant_id' => $line['variant_id'],
-                'quantity'           => $line['quantity'],
+                'quantity' => $line['quantity'],
             ],
             [
                 'cart_units' => $cart->count(),
