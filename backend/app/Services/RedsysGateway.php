@@ -116,15 +116,19 @@ class RedsysGateway
             ]);
 
             $this->events->log(EventLogger::PAYMENT_SIMULATED, [
-                'reference' => $order->reference,
-                'payment_reference' => $payment->reference,
+                'order_id' => $order->id,
+                'payment_id' => $payment->id,
+                'payment_method' => $payment->method,
                 'gateway' => 'redsys',
-                'gateway_order' => $payment->gateway_order,
-                'method' => $payment->method,
                 'status' => $payment->status,
                 'response_code' => $code,
                 'amount' => (float) $payment->amount,
-            ], $order->id);
+                'origin' => 'redsys',
+            ], [
+                'reference' => $order->reference,
+                'payment_reference' => $payment->reference,
+                'gateway_order' => $payment->gateway_order,
+            ]);
 
             if ($approved && $order->status === Order::CREATED) {
                 // Pago correcto: pagado → factura (y correo) → pendiente de preparación
@@ -161,16 +165,19 @@ class RedsysGateway
             $order = $payment->order;
 
             $this->events->log(EventLogger::PAYMENT_SIMULATED, [
+                'order_id' => $order->id,
+                'payment_id' => $payment->id,
+                'payment_method' => $payment->method,
+                'gateway' => 'redsys',
+                'status' => $payment->status,
+                'amount' => (float) $payment->amount,
+                'origin' => 'cliente', // canceló en la página de Redsys
+            ], [
                 'reference' => $order->reference,
                 'payment_reference' => $payment->reference,
-                'gateway' => 'redsys',
                 'gateway_order' => $payment->gateway_order,
-                'method' => $payment->method,
-                'status' => $payment->status,
-                'response_code' => null,
                 'cancelled_by_customer' => true,
-                'amount' => (float) $payment->amount,
-            ], $order->id);
+            ]);
 
             $this->orders->cancelUnpaid($order, 'redsys');
         });
