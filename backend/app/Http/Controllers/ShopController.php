@@ -36,11 +36,11 @@ class ShopController extends Controller
         abort_unless($product->active, 404);
         $product->load('category');
 
-        $events->log(EventLogger::PRODUCT_VIEWED, [
-            'product_id' => $product->id,
-            'sku' => $product->sku,
-            'name' => $product->name,
-        ]);
+        $events->log(
+            EventLogger::PRODUCT_VIEWED,
+            ['product_id' => $product->id],
+            ['sku' => $product->sku, 'name' => $product->name]
+        );
 
         return view('shop.product', [
             'product' => $product,

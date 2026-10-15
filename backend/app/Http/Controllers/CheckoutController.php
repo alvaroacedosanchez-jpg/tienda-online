@@ -22,16 +22,18 @@ class CheckoutController extends Controller
         }
 
         $summary = $cart->summary();
-        $events->log(EventLogger::CHECKOUT_STARTED, [
-            'units' => $cart->count(),
-            'total' => $summary['total'],
-        ]);
+        $events->log(
+            EventLogger::CHECKOUT_STARTED,
+            [
+                'quantity' => $cart->count(),
+                'amount'   => $summary['total'],
+            ]
+        );
 
         return view('checkout.show', [
             'items' => $cart->items(),
             'summary' => $summary,
             'user' => $request->user(),
-            // Ficha de cliente (null hasta su primera compra): sirve para prerrellenar el formulario
             'customer' => $request->user()->customer,
         ]);
     }
@@ -53,7 +55,6 @@ class CheckoutController extends Controller
     /** Paso 3 · Valida los datos de envío y crea el pedido en una transacción (OrderService). */
     public function store(Request $request, OrderService $orders)
     {
-        // El correo no se pide: se usa el de la cuenta del usuario
         $data = $request->validate([
             'name' => ['required', 'string', 'max:100'],
             'phone' => ['nullable', 'regex:/^[0-9 +]{9,15}$/'],
@@ -68,7 +69,6 @@ class CheckoutController extends Controller
         ]);
         unset($data['accept_prototype']);
 
-        // Solo se capturan errores de negocio; un error técnico revierte la transacción y da un 500
         try {
             $order = $orders->createFromCart($request->user(), $data);
         } catch (CheckoutException $e) {
@@ -78,10 +78,9 @@ class CheckoutController extends Controller
         return redirect()->route('orders.pay', $order);
     }
 
-    /** Paso 4 · Muestra el formulario de pago simulado (solo del dueño y si está sin pagar). */
+    /** Paso 4 · Muestra el formulario de pago simulado. */
     public function payForm(Request $request, Order $order)
     {
-        // 404 y no 403: no revelamos que existe un pedido con esa referencia
         abort_unless($order->isOwnedBy($request->user()), 404);
 
         if ($order->status !== Order::CREATED) {
@@ -91,7 +90,7 @@ class CheckoutController extends Controller
         return view('checkout.pay', ['order' => $order->load('items')]);
     }
 
-    /** Paso 4 · Cobra el pedido: con tarjeta redirige al TPV de Redsys; con transferencia simulada, pago, factura y estados en una transacción. */
+    /** Paso 4 · Cobra el pedido. */
     public function pay(Request $request, Order $order, PaymentSimulator $simulator, RedsysGateway $redsys)
     {
         abort_unless($order->isOwnedBy($request->user()), 404);
@@ -105,14 +104,12 @@ class CheckoutController extends Controller
         ]);
 
         try {
-            // Tarjeta: el cliente paga en el TPV de Redsys (entorno de pruebas); la tarjeta nunca pasa por la tienda
             if ($data['method'] === Payment::METHOD_REDSYS) {
                 return view('checkout.redsys-redirect', $redsys->start($order) + ['order' => $order]);
             }
 
             $simulator->pay($order);
         } catch (CheckoutException $e) {
-            // Otra petición ha pagado el pedido mientras tanto
             return redirect()->route('orders.show', $order)->withErrors(['cart' => $e->getMessage()]);
         }
 

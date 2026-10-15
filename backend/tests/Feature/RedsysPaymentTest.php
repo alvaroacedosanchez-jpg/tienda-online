@@ -58,7 +58,6 @@ class RedsysPaymentTest extends TestCase
             ->assertSee('name="Ds_MerchantParameters"', false)
             ->assertSee('name="Ds_Signature"', false);
 
-        // Lo que se envía a Redsys: importe en céntimos, nuestro número de pedido y las URLs de vuelta
         preg_match('/name="Ds_MerchantParameters" value="([^"]+)"/', $response->getContent(), $m);
         $sent = json_decode(Utils::base64_url_decode_safe(html_entity_decode($m[1])), true);
         $this->assertSame('1085', $sent['DS_MERCHANT_AMOUNT']);
@@ -84,8 +83,8 @@ class RedsysPaymentTest extends TestCase
         $this->assertNotNull($order->fresh()->invoice);
 
         $event = Event::where('type', 'payment.simulated')->latest('id')->firstOrFail();
-        $this->assertSame('redsys', $event->payload['gateway']);
-        $this->assertSame('0000', $event->payload['response_code']);
+        $this->assertSame('redsys', $event->gateway);
+        $this->assertSame('0000', $event->response_code);
     }
 
     public function test_declined_notification_cancels_order_without_invoice(): void
@@ -100,7 +99,6 @@ class RedsysPaymentTest extends TestCase
         $this->assertNull($order->fresh()->invoice);
     }
 
-    /** El caso detectado en producción: cancelar en la página de Redsys y volver por urlKo sin respuesta firmada. */
     public function test_cancel_in_redsys_cancels_order_restores_stock_and_cart(): void
     {
         $product = Product::where('sku', 'SAL-003')->firstOrFail();
@@ -119,7 +117,7 @@ class RedsysPaymentTest extends TestCase
         $this->assertSame($stockBefore, $product->fresh()->stock, 'El stock vuelve a estar disponible');
         $this->assertNull($order->fresh()->invoice);
         $this->assertDatabaseHas('cart_items', ['product_id' => $product->id, 'quantity' => 1]);
-        $this->assertSame('cancelado', Event::where('type', 'order.status_changed')->latest('id')->first()->payload['to']);
+        $this->assertSame('cancelado', Event::where('type', 'order.status_changed')->latest('id')->first()->status);
     }
 
     public function test_declined_notification_restores_stock_and_cart(): void
@@ -128,7 +126,7 @@ class RedsysPaymentTest extends TestCase
         $stockBefore = $product->stock;
         $order = $this->createdOrder();
 
-        $this->notifyRedsys($this->startRedsysPayment($order), '9915')->assertOk(); // 9915 = cancelado por el usuario
+        $this->notifyRedsys($this->startRedsysPayment($order), '9915')->assertOk();
 
         $this->assertSame(Order::CANCELLED, $order->fresh()->status);
         $this->assertSame($stockBefore, $product->fresh()->stock);
@@ -153,10 +151,9 @@ class RedsysPaymentTest extends TestCase
         $first = $this->startRedsysPayment($order);
         $second = $this->startRedsysPayment($order);
 
-        $this->get(route('redsys.ko', $second)); // cancela en una pestaña → pedido cancelado
+        $this->get(route('redsys.ko', $second));
         $this->assertSame(Order::CANCELLED, $order->fresh()->status);
 
-        // ...pero el intento de la otra pestaña sigue pendiente y Redsys lo aprueba: no se puede perder
         $this->assertSame(Payment::PENDING, $first->fresh()->status);
         $this->notifyRedsys($first, '0000')->assertOk();
 
@@ -184,9 +181,7 @@ class RedsysPaymentTest extends TestCase
         $order = $this->createdOrder();
         $payment = $this->startRedsysPayment($order);
 
-        // Firmada correctamente, pero con otro importe
         $this->notifyRedsys($payment, '0000', ['Ds_Amount' => '1'])->assertStatus(400);
-        // Firmada correctamente, pero de un pedido de Redsys que no es nuestro
         $this->notifyRedsys($payment, '0000', ['Ds_Order' => '999999999999'])->assertStatus(400);
 
         $this->assertSame(Payment::PENDING, $payment->fresh()->status);
@@ -200,7 +195,7 @@ class RedsysPaymentTest extends TestCase
 
         $this->notifyRedsys($payment)->assertOk();
         $this->notifyRedsys($payment)->assertOk();
-        // ...y además el cliente vuelve a urlOk con la misma respuesta firmada
+
         $this->get(route('redsys.ok', $payment).'?'.http_build_query($this->redsysResponse($payment)));
 
         $this->assertSame(1, Invoice::where('order_id', $order->id)->count());
@@ -209,7 +204,6 @@ class RedsysPaymentTest extends TestCase
 
     public function test_return_to_url_ok_with_signed_parameters_settles_the_payment(): void
     {
-        // Caso local: Redsys no puede notificar a localhost, pero sí devuelve la respuesta firmada al cliente
         $order = $this->createdOrder();
         $payment = $this->startRedsysPayment($order);
 

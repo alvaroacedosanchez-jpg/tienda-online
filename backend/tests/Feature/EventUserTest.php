@@ -126,9 +126,9 @@ class EventUserTest extends TestCase
 
         $this->post(route('cart.add', $product), ['quantity' => 5]);
 
-        $payload = $this->lastEvent('cart.item_added')->payload;
-        $this->assertSame(2, $payload['quantity']);
-        $this->assertSame(5, $payload['requested_quantity']);
+        $event = $this->lastEvent('cart.item_added');
+        $this->assertSame(2, $event->quantity);
+        $this->assertSame(5, $event->payload['requested_quantity']);
     }
 
     public function test_no_event_when_nothing_could_be_added(): void
@@ -153,12 +153,14 @@ class EventUserTest extends TestCase
 
         $this->patch(route('cart.update', $key), ['quantity' => 3]);
         $updated = $this->lastEvent('cart.item_updated');
-        $this->assertSame(['from' => 1, 'to' => 3], array_intersect_key($updated->payload, ['from' => 0, 'to' => 0]));
-        $this->assertSame($variant->id, $updated->payload['variant_id']);
+
+        $this->assertSame(1, $updated->previous_quantity);
+        $this->assertSame(3, $updated->quantity);
+        $this->assertSame($variant->id, $updated->product_variant_id);
         $this->assertSame($this->user()->id, $updated->user_id);
 
         $this->delete(route('cart.remove', $key));
-        $this->assertSame(3, $this->lastEvent('cart.item_removed')->payload['quantity']);
+        $this->assertSame(3, $this->lastEvent('cart.item_removed')->quantity);
     }
 
     public function test_setting_quantity_to_zero_logs_removal(): void
@@ -168,7 +170,7 @@ class EventUserTest extends TestCase
 
         $this->patch(route('cart.update', (string) $product->id), ['quantity' => 0]);
 
-        $this->assertSame(2, $this->lastEvent('cart.item_removed')->payload['quantity']);
+        $this->assertSame(2, $this->lastEvent('cart.item_removed')->quantity);
         $this->assertFalse(Event::where('type', 'cart.item_updated')->exists());
     }
 

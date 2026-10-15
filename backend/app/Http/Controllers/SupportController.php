@@ -41,13 +41,18 @@ class SupportController extends Controller
             'message' => $data['message'],
         ]);
 
-        $events->log(EventLogger::SUPPORT_REQUESTED, [
-            'ticket_id' => $ticket->id,
-            'subject' => $ticket->subject,
-            'order_reference' => $order?->reference,
-        ], $order?->id);
+        $events->log(
+            EventLogger::SUPPORT_REQUESTED,
+            [
+                'support_ticket_id' => $ticket->id,
+                'order_id'          => $order?->id,
+            ],
+            [
+                'subject'         => $ticket->subject,
+                'order_reference' => $order?->reference,
+            ]
+        );
 
-        // Acuse de recibo al cliente y aviso a la tienda
         $mailer->supportRequested($ticket);
 
         return redirect()->route('support.create')->with('status', 'Solicitud enviada. Número de ticket: #'.$ticket->id);

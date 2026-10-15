@@ -20,17 +20,6 @@ class OrderService
         private ShopMailer $mailer,
     ) {}
 
-    /**
-     * Crea el pedido del usuario a partir del carrito (Order-to-Cash).
-     *
-     * Todo ocurre en una única transacción: ficha de cliente, pedido, líneas, stock,
-     * evento order.created y vaciado del carrito. Si cualquier paso falla, no se guarda
-     * nada y el carrito se conserva para poder reintentar.
-     *
-     * @param  array{name: string, phone: ?string, address: string, city: string, postal_code: string}  $shipping
-     *
-     * @throws CheckoutException si el carrito está vacío, un producto ya no está disponible o no hay stock
-     */
     public function createFromCart(User $user, array $shipping): Order
     {
         $cartItems = $this->cart->items();
@@ -39,7 +28,6 @@ class OrderService
         }
 
         $order = DB::transaction(function () use ($user, $shipping, $cartItems) {
-            // 1. Ficha de cliente: se crea en la primera compra y después se reutiliza tal cual
             $customer = Customer::firstOrCreate(['user_id' => $user->id], [
                 'name' => $shipping['name'],
                 'email' => $user->email,
@@ -49,20 +37,18 @@ class OrderService
                 'postal_code' => $shipping['postal_code'],
             ]);
 
-            // 2. Bloquear productos y variantes (en orden de id para evitar interbloqueos) y releer precio y stock
             $products = Product::whereIn('id', $cartItems->pluck('product.id'))
                 ->orderBy('id')
                 ->lockForUpdate()
                 ->get()
                 ->keyBy('id');
+
             $variants = ProductVariant::whereIn('id', $cartItems->pluck('variant.id')->filter())
                 ->orderBy('id')
                 ->lockForUpdate()
                 ->get()
                 ->keyBy('id');
 
-            // 3. Recalcular las líneas con los datos bloqueados, no con los leídos antes de la transacción.
-            //    Si la línea tiene variante (tamaño), el precio y el stock son los de la variante.
             $items = $cartItems->map(function (array $item) use ($products, $variants) {
                 /** @var Product|null $product */
                 $product = $products->get($item['product']->id);
@@ -94,7 +80,6 @@ class OrderService
             });
             $summary = $this->cart->summaryFor($items);
 
-            // 4. Pedido con su propia copia de la dirección de envío
             $order = Order::create([
                 'reference' => $this->newReference(),
                 'customer_id' => $customer->id,
@@ -112,12 +97,10 @@ class OrderService
                 'shipping_postal_code' => $shipping['postal_code'],
             ]);
 
-            // 5. Líneas (copia histórica de nombre y precio) y descuento de stock
             foreach ($items as $item) {
                 $product = $item['product'];
                 $variant = $item['variant'];
 
-                // El stock se descuenta de la variante si la hay; si no, del producto
                 ($variant ?? $product)->decrement('stock', $item['quantity']);
 
                 $order->items()->create([
@@ -131,16 +114,19 @@ class OrderService
                 ]);
             }
 
-            // 6. Evento dentro de la transacción: o se guarda todo o nada
-            $this->events->log(EventLogger::ORDER_CREATED, [
-                'reference' => $order->reference,
-                'total' => (float) $order->total,
-                'items' => $items->sum('quantity'),
-                'discount_code' => $order->discount_code,
-            ], $order->id);
+            $this->events->log(
+                EventLogger::ORDER_CREATED,
+                [
+                    'order_id'      => $order->id,
+                    'quantity'      => $items->sum('quantity'),
+                    'amount'        => (float) $order->total,
+                    'discount_code' => $order->discount_code,
+                ],
+                [
+                    'reference' => $order->reference,
+                ]
+            );
 
-            // 7. Vaciar el carrito: el del cliente está en la base de datos, así que se vacía en la
-            //    misma transacción (si algo falla antes, el carrito se conserva para reintentar)
             $this->cart->clear();
 
             return $order;
@@ -149,39 +135,31 @@ class OrderService
         return $order;
     }
 
-    /**
-     * Pedido cobrado: pagado → factura → pendiente de preparación.
-     * Se llama dentro de la transacción del pago (transferencia simulada o Redsys), con el pedido bloqueado:
-     * si falla la factura, se revierte también el pago.
-     */
     public function markPaid(Order $order, string $origin = 'payment'): Invoice
     {
         $this->changeStatus($order, Order::PAID, $origin);
 
         $invoice = Invoice::issueFor($order);
-        $this->events->log(EventLogger::INVOICE_ISSUED, [
-            'reference' => $order->reference,
-            'invoice_number' => $invoice->number,
-            'total' => (float) $invoice->total,
-        ], $order->id);
+        $this->events->log(
+            EventLogger::INVOICE_ISSUED,
+            [
+                'order_id'   => $order->id,
+                'invoice_id' => $invoice->id,
+                'amount'     => (float) $invoice->total,
+            ],
+            [
+                'reference'      => $order->reference,
+                'invoice_number' => $invoice->number,
+            ]
+        );
 
         $this->changeStatus($order, Order::PENDING_PREPARATION, $origin);
 
-        // Correo al cliente con la factura (sale cuando se confirme la transacción del pago)
         $this->mailer->orderPaid($order);
 
         return $invoice;
     }
 
-    /**
-     * Pago cancelado o rechazado: el pedido no se ha pagado, así que se cancela al instante para no
-     * dejar el stock bloqueado. Todo en una transacción: estado "cancelado" (devuelve el stock y
-     * registra el evento) y productos devueltos al carrito del cliente para que pueda reintentar.
-     * Otros intentos de pago que sigan pendientes NO se tocan: si Redsys aprobara alguno después,
-     * se detecta y el pedido pasa a incidencia (RedsysGateway::settle), en vez de perder el cobro.
-     *
-     * @return bool false si el pedido ya no estaba pendiente de pago (pagado o ya cancelado)
-     */
     public function cancelUnpaid(Order $order, string $origin = 'payment'): bool
     {
         return DB::transaction(function () use ($order, $origin) {
@@ -197,7 +175,6 @@ class OrderService
         });
     }
 
-    /** Cambia el estado, registra el evento y devuelve stock si se cancela. */
     public function changeStatus(Order $order, string $newStatus, string $origin = 'system'): void
     {
         $old = $order->status;
@@ -205,7 +182,6 @@ class OrderService
             return;
         }
 
-        // Estado, stock y evento en la misma transacción
         DB::transaction(function () use ($order, $old, $newStatus, $origin) {
             if ($newStatus === Order::CANCELLED) {
                 foreach ($order->items as $item) {
@@ -219,15 +195,21 @@ class OrderService
             $order->update(['status' => $newStatus]);
 
             if ($newStatus === Order::SHIPPED) {
-                $this->mailer->orderShipped($order); // sale cuando se confirme la transacción
+                $this->mailer->orderShipped($order);
             }
 
-            $this->events->log(EventLogger::ORDER_STATUS_CHANGED, [
-                'reference' => $order->reference,
-                'from' => $old,
-                'to' => $newStatus,
-                'origin' => $origin,
-            ], $order->id);
+            $this->events->log(
+                EventLogger::ORDER_STATUS_CHANGED,
+                [
+                    'order_id'        => $order->id,
+                    'previous_status' => $old,
+                    'status'          => $newStatus,
+                    'origin'          => $origin,
+                ],
+                [
+                    'reference' => $order->reference,
+                ]
+            );
         });
     }
 
