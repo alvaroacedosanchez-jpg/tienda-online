@@ -17,6 +17,8 @@ return new class extends Migration
         foreach (Order::STATUS_LABELS + Payment::STATUS_LABELS as $code => $label) {
             $whens .= 'WHEN '.$pdo->quote($code).' THEN '.$pdo->quote($label).' ';
         }
+        // Misma regla que Payment::gateway()
+        $redsys = $pdo->quote(Payment::METHOD_REDSYS);
 
         DB::statement("
             CREATE VIEW eventos_bi AS
@@ -58,13 +60,13 @@ return new class extends Migration
                 e.previous_status AS estado_anterior,
                 e.origin AS origen,
                 CASE e.status {$whens}ELSE e.status END AS estado_texto,
-                e.payment_method AS metodo_pago,
-                e.gateway AS pasarela,
-                e.response_code AS codigo_respuesta,
+                pay.method AS metodo_pago,
+                CASE WHEN pay.id IS NULL THEN NULL WHEN pay.method = {$redsys} THEN 'redsys' ELSE 'simulado' END AS pasarela,
+                pay.response_code AS codigo_respuesta,
                 inv.number AS factura_numero,
                 e.support_ticket_id AS ticket_id,
                 st.subject AS ticket_asunto,
-                e.discount_code AS codigo_descuento
+                o.discount_code AS codigo_descuento
             FROM events e
             LEFT JOIN users u ON e.user_id = u.id
             LEFT JOIN customers c ON e.user_id = c.user_id
@@ -72,6 +74,7 @@ return new class extends Migration
             LEFT JOIN categories cat ON p.category_id = cat.id
             LEFT JOIN product_variants pv ON e.product_variant_id = pv.id
             LEFT JOIN orders o ON e.order_id = o.id
+            LEFT JOIN payments pay ON e.payment_id = pay.id
             LEFT JOIN invoices inv ON e.invoice_id = inv.id
             LEFT JOIN support_tickets st ON e.support_ticket_id = st.id
         ");

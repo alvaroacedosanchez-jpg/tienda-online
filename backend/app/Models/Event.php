@@ -10,6 +10,8 @@ class Event extends Model
 {
     use HasFactory;
 
+    public $timestamps = false; // la fecha del evento es occurred_at
+
     protected $fillable = [
         'type',
         'occurred_at',
@@ -28,10 +30,6 @@ class Event extends Model
         'status',
         'previous_status',
         'origin',
-        'payment_method',
-        'gateway',
-        'response_code',
-        'discount_code',
         'payload',
     ];
 

@@ -39,10 +39,6 @@ class EventLogger
         'status',
         'previous_status',
         'origin',
-        'payment_method',
-        'gateway',
-        'response_code',
-        'discount_code',
     ];
 
     /**

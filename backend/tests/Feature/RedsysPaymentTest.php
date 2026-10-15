@@ -83,8 +83,8 @@ class RedsysPaymentTest extends TestCase
         $this->assertNotNull($order->fresh()->invoice);
 
         $event = Event::where('type', 'payment.simulated')->latest('id')->firstOrFail();
-        $this->assertSame('redsys', $event->gateway);
-        $this->assertSame('0000', $event->response_code);
+        $this->assertSame('redsys', $event->payment->gateway());
+        $this->assertSame('0000', $event->payment->response_code);
     }
 
     public function test_declined_notification_cancels_order_without_invoice(): void

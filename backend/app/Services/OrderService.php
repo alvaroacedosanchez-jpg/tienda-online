@@ -120,7 +120,6 @@ class OrderService
                     'order_id'      => $order->id,
                     'quantity'      => $items->sum('quantity'),
                     'amount'        => (float) $order->total,
-                    'discount_code' => $order->discount_code,
                 ],
                 [
                     'reference' => $order->reference,

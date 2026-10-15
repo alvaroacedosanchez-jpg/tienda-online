@@ -12,7 +12,7 @@ return new class extends Migration
             $table->id();
             $table->string('type')->index();
             $table->timestamp('occurred_at')->useCurrent()->index();
-            $table->string('session_id')->nullable();
+            $table->string('session_id')->nullable()->index(); // adoptGuestEvents() busca por sesión
 
             // Claves foráneas (con nullOnDelete)
             $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();
@@ -33,16 +33,11 @@ return new class extends Migration
             $table->string('previous_status')->nullable();
             $table->string('origin')->nullable();
 
-            $table->string('payment_method')->nullable();
-            $table->string('gateway')->nullable();
-            $table->string('response_code')->nullable();
-
-            $table->string('discount_code')->nullable();
+            // Método de pago, pasarela, código de respuesta y código de descuento no se guardan aquí:
+            // se obtienen por relación (payments por payment_id, orders por order_id)
 
             // Extras secundarios
             $table->json('payload')->nullable();
-
-            $table->timestamps();
         });
     }
 

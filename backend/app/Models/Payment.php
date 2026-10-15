@@ -45,6 +45,12 @@ class Payment extends Model
         };
     }
 
+    /** Pasarela por la que pasó el pago: el TPV de Redsys o la transferencia simulada. */
+    public function gateway(): string
+    {
+        return $this->method === self::METHOD_REDSYS ? 'redsys' : 'simulado';
+    }
+
     public function statusLabel(): string
     {
         return self::STATUS_LABELS[$this->status] ?? $this->status;

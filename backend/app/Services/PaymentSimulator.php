@@ -35,8 +35,6 @@ class PaymentSimulator
                 [
                     'order_id'       => $order->id,
                     'payment_id'     => $payment->id,
-                    'payment_method' => $payment->method,
-                    'gateway'        => 'simulado',
                     'status'         => $payment->status,
                     'amount'         => (float) $payment->amount,
                 ],

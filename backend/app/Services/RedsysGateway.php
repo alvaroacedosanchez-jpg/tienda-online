@@ -118,10 +118,7 @@ class RedsysGateway
             $this->events->log(EventLogger::PAYMENT_SIMULATED, [
                 'order_id' => $order->id,
                 'payment_id' => $payment->id,
-                'payment_method' => $payment->method,
-                'gateway' => 'redsys',
                 'status' => $payment->status,
-                'response_code' => $code,
                 'amount' => (float) $payment->amount,
                 'origin' => 'redsys',
             ], [
@@ -167,8 +164,6 @@ class RedsysGateway
             $this->events->log(EventLogger::PAYMENT_SIMULATED, [
                 'order_id' => $order->id,
                 'payment_id' => $payment->id,
-                'payment_method' => $payment->method,
-                'gateway' => 'redsys',
                 'status' => $payment->status,
                 'amount' => (float) $payment->amount,
                 'origin' => 'cliente', // canceló en la página de Redsys
