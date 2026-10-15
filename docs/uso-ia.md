@@ -366,3 +366,36 @@ Plantilla para cada entrada:
 - **Errores detectados en la IA:** la primera versión de `cancelUnpaid()` marcaba como rechazados **todos** los intentos pendientes del pedido. Si Redsys aprobaba después un intento de otra pestaña, ese cobro se habría **ignorado**. Lo detectó el test nuevo; ahora solo se marca el intento cancelado, y un aprobado tardío pasa el pedido a incidencia.
 - **Limitación aceptada:** si el cliente abandona Redsys sin volver a la tienda, el pedido sigue en "Creado" hasta que el back-office lo cancele (no hay caducidad).
 - **Validación:** `php artisan test` **90/90**.
+
+### 2026-10-15 · Abel · Revisión y arreglo de los eventos tipados de Antonio
+- **Tarea:** Antonio implementó el plan de eventos con columnas tipadas y la vista `eventos_bi` para Power BI (commits `ab794d0` a `627a91a`). Abel pidió a la IA revisarlo sin tocar nada y, después, arreglar lo encontrado.
+- **Revisión de la IA (solo lectura):** con su cambio, `php artisan test` daba **19 fallos de 93**.
+  - `RedsysGateway` seguía llamando a `EventLogger::log()` con el formato antiguo, lo que daba un `TypeError`. **El pago con tarjeta estaba roto**: la notificación devolvía 400 y la cancelación 500.
+  - En la vista, `estado_texto` tenía códigos que no existen (`pagado`, `cancelled`, `completed`) y le faltaba `cancelado`.
+  - El commit de Abel que cambiaba la contraseña del admin en el seeder rompía los tests de login del admin, y la contraseña nueva quedaba igualmente pública en el repositorio.
+  - Problemas menores:
+    - se perdió el índice de `session_id`;
+    - se borraron comentarios explicativos;
+    - hay errores de formato;
+    - los `timestamps` repetían `occurred_at`;
+    - faltan el test `EventColumnsTest` y la documentación del plan.
+- **Decisiones del grupo (Abel):**
+  - **revertir** el commit de la contraseña con `git revert` en lugar de reescribir el historial, porque ya estaba en GitHub;
+  - quitar de `events` las columnas que se pueden obtener por relación.
+- **Punto 3 (vista):** la IA guió a Abel como profesor: el `CASE` falla en silencio y los textos deben salir de una sola fuente. Abel entendió el problema y la solución, y pidió a la IA que la escribiera.
+- **Partes asistidas (la IA escribió el código):**
+  - revert de la contraseña;
+  - `RedsysGateway` con columnas tipadas: origen `redsys`, o `cliente` cuando se cancela en Redsys;
+  - `estado_texto` generado en la migración desde `Order::STATUS_LABELS` y el nuevo `Payment::STATUS_LABELS`, que ahora también usa `Payment::statusLabel()`;
+  - se quitan de `events` `payment_method`, `gateway`, `response_code`, `discount_code` y los `timestamps`:
+    - la vista y la exportación CSV/JSON los leen de `payments` y `orders`, con los mismos nombres de columna;
+    - el nuevo `Payment::gateway()` deduce la pasarela;
+  - se recupera el índice de `session_id`;
+  - Pint en los archivos de eventos.
+  - Se mantienen `unit_price`, `amount`, `quantity`, `status` y `previous_status`, porque guardan cómo estaban las cosas en el momento del evento.
+- **Efecto a tener en cuenta:** en la vista, `codigo_descuento` aparece ahora en todos los eventos del pedido, no solo en `order.created`, porque sale de `orders`.
+- **Validación:**
+  - `php artisan test --testsuite=Feature` **93/93**;
+  - migraciones y vista comprobadas en SQLite en memoria: estados traducidos ("Cancelado", "Pagado (simulado)", "Aprobado"…) y método, pasarela y código de descuento sacados por relación tras un pago simulado;
+  - **falta comprobarlo en la MariaDB local** (Docker estaba parado) y repetir `migrate:fresh --seed` en producción.
+- **Pendiente:** `EventColumnsTest` y la documentación del plan (diccionario de datos y conexión con Power BI).
