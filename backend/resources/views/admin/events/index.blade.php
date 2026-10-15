@@ -17,18 +17,61 @@
 </nav>
 
 <table class="table">
-    <thead><tr><th>#</th><th>Fecha</th><th>Tipo</th><th>Pedido</th><th>Datos</th></tr></thead>
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Fecha</th>
+            <th>Tipo</th>
+            <th>Usuario</th>
+            <th>Pedido</th>
+            <th>Producto</th>
+            <th>Cant.</th>
+            <th>Importe</th>
+            <th>Estado</th>
+        </tr>
+    </thead>
     <tbody>
     @forelse ($events as $event)
         <tr>
             <td>{{ $event->id }}</td>
-            <td>{{ $event->occurred_at->format('d/m/Y H:i:s') }}</td>
+            <td>{{ $event->occurred_at?->format('d/m/Y H:i:s') }}</td>
             <td><code>{{ $event->type }}</code></td>
-            <td>{{ $event->order_id }}</td>
-            <td><code class="small">{{ json_encode($event->payload, JSON_UNESCAPED_UNICODE) }}</code></td>
+            <td>
+                @if ($event->user)
+                    <small>{{ $event->user->name }}</small>
+                @else
+                    <span class="muted">Invitado</span>
+                @endif
+            </td>
+            <td>
+                @if ($event->order)
+                    <code>{{ $event->order->reference }}</code>
+                @else
+                    —
+                @endif
+            </td>
+            <td>
+                @if ($event->product)
+                    {{ $event->product->name }}
+                    @if ($event->variant)
+                        <small class="muted">({{ $event->variant->size }})</small>
+                    @endif
+                @else
+                    —
+                @endif
+            </td>
+            <td>{{ $event->quantity ?? '—' }}</td>
+            <td>
+                @if ($event->amount !== null)
+                    {{ number_format($event->amount, 2, ',', '.') }} €
+                @else
+                    —
+                @endif
+            </td>
+            <td>{{ $event->status ?? '—' }}</td>
         </tr>
     @empty
-        <tr><td colspan="5">Aún no hay eventos.</td></tr>
+        <tr><td colspan="9">Aún no hay eventos.</td></tr>
     @endforelse
     </tbody>
 </table>
