@@ -400,3 +400,58 @@ Plantilla para cada entrada:
   - **falta comprobarlo en la MariaDB local** (Docker estaba parado) y repetir `migrate:fresh --seed` en producción.
 - **Pendiente:** `EventColumnsTest` y la documentación del plan (diccionario de datos y conexión con Power BI).
 
+---
+
+## Tarea 2
+
+En la Tarea 2 el anexo de IA es el **apartado 10** del enunciado (puntos 10.a–10.j) y la declaración del punto de partida es el **11.2**. El enunciado pide separar dos usos de la IA (10.a–c):
+
+- **IA como apoyo al desarrollo:** Claude Code (Claude Opus 5.5) en VS Code, como mentor y revisor. Es lo que se anota en esta sección.
+- **IA como componente del sistema:** el agente de IA de n8n del escenario 3 (lo lleva Álvaro). Se documenta aparte, no aquí.
+
+Plantilla para cada entrada:
+
+```
+### AAAA-MM-DD · Quién · Tema (repo y rama)
+- Tarea:
+- Tipo de uso: apoyo al desarrollo / componente del sistema
+- Partes asistidas: archivos / commits
+- Qué escribió el miembro del grupo:
+- Qué escribió o propuso la IA:
+- Decisiones del grupo:
+- Errores detectados en las propuestas de la IA (10.i) y cambios para corregirlos (10.j):
+- Validación:
+```
+
+### 2026-11-08 · Abel · C1: la API del back-office exige el token siempre (repo `SIE-Tarea2`, rama `fix/backoffice-rev`)
+- **Tarea:** corrección C1 de la revisión del back-office de Antonio. La API solo rechazaba un token incorrecto: si no se enviaba ninguno, dejaba pasar, y además aceptaba el token por la URL (`?api_token=`), lo comparaba con `!==`, tenía un token por defecto publicado en el repo y respondía con CORS abierto.
+- **Tipo de uso:** IA como apoyo al desarrollo (Claude Code en modo mentor).
+- **Partes asistidas:** `backoffice/src/Controllers/ApiController.php`, método `handle()`.
+- **Qué hizo Abel:**
+  - vio que el fallo estaba en la condición e intentó invertirla;
+  - quitó la lectura del token desde la URL (`$_GET['api_token']`);
+  - separó el rechazo en dos comprobaciones, «falta el token» y «token incorrecto», con códigos de error distintos.
+- **Qué hizo la IA:**
+  - explicó el problema y los conceptos: ley de De Morgan para negar la condición, superglobales `$_GET` y `$_SERVER` (cómo una cabecera pasa a `HTTP_X_INTEGRATION_TOKEN`), por qué el token no debe ir en la URL, comparación en tiempo constante con `hash_equals`, por qué sobra CORS y la diferencia entre 401 (culpa del cliente) y 500 (configuración del servidor);
+  - revisó los tres intentos de Abel y señaló los errores sin darle la solución:
+    1. cambiar `&&` por `||` sin negar las comparaciones rechazaba también el token correcto;
+    2. la comparación con el token esperado estaba invertida y dejaba pasar uno incorrecto;
+    3. los dos rechazos respondían 500 en lugar de 401, y faltaba el `?? ''`, sin el cual PHP avisa si no llega la cabecera;
+  - **a petición de Abel, escribió la versión final**:
+    - `GET /api/v1/health` antes de la comprobación y sin token;
+    - sin valor por defecto para `INTEGRATION_API_KEY`: si falta, 500 `ERR_CONFIGURACION`;
+    - 401 `ERR_AUTH_TOKEN_AUSENTE` si no llega la cabecera y 401 `ERR_AUTH_TOKEN_INVALIDO` si no coincide;
+    - comparación con `hash_equals`;
+    - se quitan las cabeceras CORS y el bloque `OPTIONS`.
+- **Decisiones del grupo:** pendiente de que Antonio lo revise en la pull request. Los códigos nuevos (`ERR_AUTH_TOKEN_AUSENTE`, `ERR_CONFIGURACION`) hay que añadirlos a `docs/CONTRATOS_API_Y_AGENTE.md` (corrección C16).
+- **Errores detectados en las propuestas de la IA (10.i / 10.j):** ninguno en esta corrección.
+- **Validación:** `curl` contra el servidor local (`php -S`) con un token de prueba en variable de entorno:
+  - `health` sin token → 200;
+  - sin token → 401 `ERR_AUTH_TOKEN_AUSENTE`;
+  - token incorrecto → 401 `ERR_AUTH_TOKEN_INVALIDO`;
+  - token correcto en `?api_token=` → 401;
+  - token correcto en la cabecera → pasa la comprobación;
+  - `OPTIONS` → 401;
+  - ninguna respuesta lleva cabeceras `Access-Control-*`.
+- **Pendiente:** el caso 500 no se da hasta la corrección C9, porque sin `.env` el back-office sigue leyendo `.env.example`. Efectos apuntados en `CORRECCIONES_BACKOFFICE.md`: el enlace del cuadro de mando a `/api/v1/metrics` ahora da 401 en el navegador y `layout.php` muestra el token como «opcional».
+
