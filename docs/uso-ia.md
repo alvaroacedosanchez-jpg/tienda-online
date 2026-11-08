@@ -455,3 +455,40 @@ Plantilla para cada entrada:
   - ninguna respuesta lleva cabeceras `Access-Control-*`.
 - **Pendiente:** el caso 500 no se da hasta la corrección C9, porque sin `.env` el back-office sigue leyendo `.env.example`. Efectos apuntados en `CORRECCIONES_BACKOFFICE.md`: el enlace del cuadro de mando a `/api/v1/metrics` ahora da 401 en el navegador y `layout.php` muestra el token como «opcional».
 
+### 2026-11-08 · Abel · C2: inicio de sesión en la web del back-office (repo `SIE-Tarea2`, rama `fix/backoffice-rev`)
+- **Tarea:** corrección C2 de la revisión del back-office de Antonio. La web no comprobaba la sesión, así que cualquiera con la URL podía ver los datos, cambiar estados, vaciar la base de datos y aprobar propuestas del agente. Además, los formularios no llevaban token CSRF y el nombre del revisor salía de un campo de texto que se podía cambiar.
+- **Tipo de uso:** IA como apoyo al desarrollo (Claude Code).
+- **Partes asistidas:** `backoffice/src/Controllers/WebController.php`, `backoffice/views/layout.php`, `backoffice/views/login.php` (nuevo) y `backoffice/.env.example`. Commits `0e8a355`, `1dfc8fe` y `03225fe`.
+- **Qué hizo Abel:** decidió que la IA escribiera directamente toda la corrección y los commits, en lugar de seguir el modo mentor paso a paso.
+- **Qué hizo la IA:**
+  - comprobó en el código que el problema seguía ahí y propuso dividirlo en cinco pasos;
+  - explicó por qué la contraseña se guarda como hash bcrypt;
+  - escribió el código completo, a petición de Abel:
+    1. **Inicio y cierre de sesión:**
+       - `ERP_ADMIN_PASSWORD_HASH` en lugar de la contraseña en claro, con el comando para generarlo en `.env.example`;
+       - rutas `/login` y `/logout`, con comprobación de sesión al principio de `handle()`;
+       - `password_verify`, `session_regenerate_id(true)` y comparación del email con `hash_equals`;
+       - cookie de sesión `HttpOnly`, `SameSite=Lax` y `Secure` detrás de HTTPS;
+       - error 500 si el acceso no está configurado.
+    2. **Token CSRF** guardado en la sesión, en todos los formularios POST (también en el login y el cierre de sesión); se comprueba con `hash_equals` y cambia al iniciar sesión.
+    3. **`reviewed_by`** sale del operador con sesión iniciada; se quita el campo editable del formulario.
+- **Decisiones del grupo:** pendiente de que Antonio lo revise en la pull request. `ERP_ADMIN_PASSWORD` cambia de nombre a `ERP_ADMIN_PASSWORD_HASH`: hay que avisarle y documentarlo en el README y en `deploy/`.
+- **Errores detectados en las propuestas de la IA (10.i / 10.j):** ninguno detectado por Abel en esta corrección.
+- **Validación:** `curl` contra el servidor local, con una base de datos de prueba aparte que se borró al terminar:
+  - **Sin sesión:**
+    - `/`, `/?tab=logs` y un POST de vaciado → redirigen a `/login`.
+  - **Login:**
+    - contraseña incorrecta → 401;
+    - contraseña correcta → entra y el identificador de sesión cambia;
+    - con sesión, `/login` redirige a `/`;
+    - sin `ERP_ADMIN_PASSWORD_HASH` → 500 «acceso no configurado».
+  - **CSRF:**
+    - login, cambio de stock y cierre de sesión sin token o con un token antiguo → 403;
+    - con el token bueno → se procesan.
+  - **Revisor:**
+    - se aprobó una propuesta mandando `reviewer_name=Suplantador`;
+    - en `reviewed_by` quedó el email del operador con sesión iniciada.
+- **Pendiente** (apuntado en `CORRECCIONES_BACKOFFICE.md`):
+  - el login no limita los intentos fallidos (en el servidor lo mitiga el `basic_auth` de Caddy);
+  - los datos de demostración se siguen cargando antes de comprobar la sesión (C3).
+
