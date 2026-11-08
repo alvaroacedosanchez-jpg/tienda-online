@@ -492,3 +492,54 @@ Plantilla para cada entrada:
   - el login no limita los intentos fallidos (en el servidor lo mitiga el `basic_auth` de Caddy);
   - los datos de demostración se siguen cargando antes de comprobar la sesión (C3).
 
+### 2026-11-08/09 · Abel · C3 a C16: resto de correcciones del back-office (repo `SIE-Tarea2`, rama `fix/backoffice-rev`)
+- **Tarea:** correcciones C3 a C16 de `CORRECCIONES_BACKOFFICE.md`, en el orden de la lista y con al menos un commit por punto.
+- **Tipo de uso:** IA como apoyo al desarrollo (Claude Code).
+- **Qué hizo Abel:**
+  - leyó el documento de correcciones y declaró que había entendido los errores;
+  - decidió que la IA escribiera todas las correcciones y los commits, en lugar de seguir el modo mentor.
+- **Qué hizo la IA (escribió todo el código y la documentación, a petición de Abel):** antes de cada punto comprobó que el problema seguía en el código. Commits:
+
+  | Punto | Commit(s) | Qué cambió |
+  |---|---|---|
+  | C3 | `b0e6163` | Sin datos de demostración; vaciar la BD solo con `APP_ENV=local` |
+  | C4 | `b571a3b` | Embudo con etapas reales (opción a); tiempo de resolución real; `telegram_notified` solo con 2xx de n8n |
+  | C5 | `2288adb` | Catálogo real `SAL-001` … `SAL-009`; payloads con productos y clientes de la tienda; versión de esquema |
+  | C6 | `c1503b8` | 422 en lugar de valores inventados; `NULL` en opcionales; la revisión ya no aprueba por defecto |
+  | C7 | `7df06ac` | SKU desconocido → `ERR_ENTIDAD_NO_ENCONTRADA`; sin stock → `ERR_STOCK_INSUFICIENTE`; todo o nada |
+  | C8 | `bccbc2b` | `telegram_chat_id` opcional y numérico; sin `chat_id` no se notifica y queda en el log |
+  | C9 | `80b1bba` | Solo `.env` o variables de entorno; sin secretos la app no arranca; `.env.example` con `cambia-esto` |
+  | C10 | `126223b` | Pruebas con BD temporal propia, código de salida y casos de cada corrección |
+  | C11 | `cf31f5d` | Transiciones de estado de `Order::TRANSITIONS` de la tienda |
+  | C12 | `fcf4be4` | Idempotencia por `event_id` (`duplicate`); los eventos solo hacen avanzar el estado; el total no se sobrescribe |
+  | C13 | `f3495ec` | `total = líneas − descuento + envío`; nuevo `discount_amount` |
+  | C14 | `b0dbc32`, `41d6ba4` | Bandeja de salida (primero se guarda, después se envía); reintentos con el mismo `event_id` (ruta interna y script para cron) |
+  | C15 | `9a22908` | `POST /api/v1/inventory/import` (idempotente, todo o nada) |
+  | C16 | `0cbdd7a` | Documentación coherente con el código |
+
+- **Decisiones que tomó la IA y debe validar el grupo:**
+  - **C4:** embudo con la opción (a), solo etapas que recibe el back-office, sin pedir eventos nuevos a la tienda.
+  - **C8:** sin `chat_id`, la incidencia aprobada se da por resuelta sin notificar por Telegram.
+  - **C12:** `event_id` obligatorio en los pedidos y opcional en las incidencias.
+  - **C14:** máximo 5 intentos de reenvío.
+  - **C16:** el `docker-compose` de la guía se sustituye por una referencia a `deploy/`.
+- **Decisiones del grupo:** pendiente de que Antonio lo revise en la pull request. El contrato del back-office cambia y afecta a los flujos de n8n de Abel y de Álvaro (campos nuevos obligatorios; ver «Otros problemas» en `CORRECCIONES_BACKOFFICE.md`).
+- **Errores detectados en las propuestas de la IA (10.i / 10.j):** ninguno detectado por Abel. La IA corrigió tres fallos propios al ejecutar las pruebas:
+  1. En C8, la actualización del pedido a «incidencia» quedó solo en una rama: se movió.
+  2. En C12, las pruebas reutilizaban el mismo `event_id` y salían como duplicados: se dieron identificadores distintos.
+  3. En C14, la prueba de agotar reintentos agotaba todos los avisos: se cambió para reintentar solo el suyo.
+- **Validación:**
+  - `php backoffice/tests/verify_backoffice.php`: **59/59** pruebas correctas. Usan una BD temporal y un n8n simulado para C14; devuelven código 1 si falla alguna, y se comprobó.
+  - Además, cada punto se probó con `curl` contra el servidor local y una BD de prueba aparte, siguiendo la «Prueba» del documento:
+    - C5: stock de 20 a 18;
+    - C7: `SAL-999` rechazado;
+    - C9: arranque sin `.env`;
+    - C10: el pedido de la BD local sigue ahí después de las pruebas;
+    - C14: n8n apagado → pendiente; n8n encendido + reintento → `SINCRONIZADO` con el mismo `event_id`.
+- **Pendiente** (en «Otros problemas» de `CORRECCIONES_BACKOFFICE.md`, sin tocar porque no estaban en la lista):
+  - el agente puede saltarse la revisión humana con `estado_final: "ejecutado_en_modo_simulado"`;
+  - se puede aprobar dos veces la misma propuesta;
+  - el simulador sigue disponible en producción;
+  - falta un `.dockerignore`;
+  - MySQL no funciona con el esquema actual.
+
