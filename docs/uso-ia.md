@@ -543,3 +543,48 @@ Plantilla para cada entrada:
   - falta un `.dockerignore`;
   - MySQL no funciona con el esquema actual.
 
+
+### 2026-11-09 · Abel · Despliegue en Google Cloud (repo `SIE-Tarea2`, rama `deploy/gcp`)
+- **Tarea:** poner en marcha la infraestructura de la Tarea 2 en una VM de Google Cloud: Caddy (HTTPS), n8n y el back-office de Antonio con Docker Compose, en `https://n8n.piquantum.onl` y `https://erp.piquantum.onl`. El paso a paso está en la bitácora del despliegue de Abel.
+- **Tipo de uso:** IA como apoyo al desarrollo (Claude Code).
+- **Partes asistidas:** `deploy/docker-compose.yml`, `deploy/Caddyfile`, `deploy/.env.example` y `deploy/README.md` (commit `b0fbb98`); corrección de la ruta del escenario 1 en el plan, `POST /api/v1/webhooks/orders` (commit `9e6a57c`).
+- **Qué hizo Abel:**
+  - creó el proyecto, la VM, la clave SSH, la memoria swap y la instalación de Docker;
+  - creó los registros A `n8n` y `erp` en DonDominio. Vio que los subdominios llevaban a la tienda, encontró la causa (el comodín `*.piquantum.onl` y unos registros A que no se habían guardado) y borró los registros `odoo` y `panel` del plan inicial;
+  - generó los secretos con `openssl rand -hex 32` y el hash de la contraseña del operador, y los puso en el `.env` de la VM, que no está en Git;
+  - arrancó los contenedores y creó en seguida la cuenta de propietario de n8n;
+  - añadió al compose y a `.env.example` las variables SMTP de n8n (commit `b71a278`), con una cuenta nueva de DonDominio (`n8n@piquantum.onl`);
+  - cargó el catálogo en el back-office y comprobó que la carga es idempotente.
+- **Qué hizo la IA:**
+  - escribió los cuatro archivos de `deploy/` a petición de Abel:
+    - Caddy es el único servicio que publica los puertos 80 y 443;
+    - la API del back-office no se publica (Caddy responde 403 en `/api/*`) y n8n la usa por la red interna;
+    - los secretos de los flujos llegan a n8n como variables de entorno, para que no queden en los workflows exportados;
+    - `PHP_CLI_SERVER_WORKERS=4`, para que el back-office no se bloquee cuando avisa a n8n y n8n le vuelve a llamar;
+  - corrigió en el plan la ruta del escenario 1.
+- **Decisiones del grupo:**
+  - el commit de `deploy/` se queda en `deploy/gcp`, y `fix/backoffice-rev` solo lleva las correcciones C1–C16 (la PR para Antonio);
+  - pendiente de que Antonio y Álvaro revisen el despliegue cuando entren en n8n.
+- **Errores detectados en las propuestas de la IA (10.i / 10.j):**
+  - **10.i:** para dar de alta a Antonio y Álvaro en n8n, la IA propuso que Abel les pasara a mano el enlace de invitación.
+  - **10.j:** Abel lo corrigió y decidió usar el correo de DonDominio. Creó la cuenta `n8n@piquantum.onl` y configuró él mismo el SMTP de n8n (`smtp.dondominio.com:465` con SSL). Antes comprobó que la VM puede salir por el 465 y el 587 (Google solo bloquea el 25) y que el SPF del dominio autoriza a DonDominio.
+- **Validación (Abel):**
+  - `docker compose config` sin errores antes del arranque;
+  - n8n devuelve 200 (al principio dio 502 mientras preparaba su base de datos);
+  - `erp.piquantum.onl` redirige a `/login`, y `/api/v1/health` desde fuera da 403;
+  - certificado de Let's Encrypt válido;
+  - `docker compose ps`: los tres contenedores arriba, y solo Caddy publica puertos;
+  - `wget http://backoffice:8080/api/v1/health` desde el contenedor de n8n devuelve `ok`;
+  - login en el back-office, cookie `Secure`/`HttpOnly`/`SameSite=Lax` y sin botón de datos de demostración (correcciones C1–C3 desplegadas);
+  - carga del catálogo dos veces con el mismo resultado: `received 13 · unchanged 13`.
+
+### 2026-11-09 · Abel · Fase 1, paso 0: preparar la tienda (repo `tienda-online`, rama `tarea2/integracion-n8n`)
+- **Tarea:** crear la rama de trabajo de la integración con n8n y comprobar que la base funciona.
+- **Tipo de uso:** IA como apoyo al desarrollo (Claude Code en modo mentor).
+- **Qué hizo Abel:**
+  - creó la rama `tarea2/integracion-n8n` a partir de `docs/uso-ia-tarea2`, para no perder los commits del registro de IA;
+  - decidió no subir a Git sus archivos personales de notas;
+  - ejecutó `php artisan test`: **93 tests en verde**, que sirven de referencia para el paso 6.
+- **Qué hizo la IA:** a petición de Abel, movió `claude_tarea1.md` y `CONTEXTO_TAREA2.md` de `.gitignore` a `.git/info/exclude`, que es local y no se versiona.
+- **Errores detectados en las propuestas de la IA (10.i / 10.j):** ninguno.
+- **Validación:** `git check-ignore -v` confirma que los dos archivos siguen ignorados y `git status` queda limpio.
