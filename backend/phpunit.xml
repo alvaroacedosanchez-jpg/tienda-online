@@ -33,6 +33,7 @@
         <env name="N8N_WEBHOOK_URL" value=""/>
         <env name="N8N_WEBHOOK_SECRET" value=""/>
         <env name="INTEGRATION_API_TOKEN" value=""/>
+        <env name="INTEGRATION_CRON_TOKEN" value=""/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
     </php>

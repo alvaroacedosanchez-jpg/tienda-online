@@ -799,3 +799,47 @@ Plantilla para cada entrada:
   - contrato: regla de reintentos con el 404, fila nueva en la tabla de respuestas y cómo recuperar las fallidas.
 - **Errores detectados en las propuestas de la IA (10.i / 10.j):** el fallo es de la propia IA. En el paso 4 propuso «4xx → fallido salvo 408 y 429» sin tener en cuenta cómo responde n8n con el flujo desactivado. Lo detectó ella misma antes de la prueba real y lo corrigió con la opción que eligió Abel.
 - **Validación:** `php artisan test`: **118/118** en verde (2 tests nuevos, 1 sustituido) y Pint sin avisos.
+
+### 2026-11-10 · Abel · Fase 1: prueba en local contra el n8n real (repo `tienda-online`, rama `tarea2/integracion-n8n`)
+- **Tarea:** comprobar la integración de extremo a extremo en local: tienda local → n8n real (URL de test) y `curl` → `POST /api/integration/sync`.
+- **Tipo de uso:** IA como apoyo al desarrollo (Claude Code).
+- **Qué hizo Abel:** creó en n8n el flujo de pruebas con el nodo Webhook (POST, `piquantum/eventos`, *Raw Body*), puso «Listen for test event», arrancó MariaDB y pidió a la IA que se encargara de la prueba.
+- **Qué hizo la IA (a petición de Abel):**
+  - **envío directo:** mandó el payload de ejemplo del contrato con el `WebhookSender` de la tienda, y n8n respondió 200;
+  - **base de datos local desfasada:** la tabla `events` era la versión antigua (7 columnas, sin las columnas tipadas de la Tarea 1), y la migración `create_events_table` figuraba como pendiente. En lugar de borrarla, la **renombró** a `events_backup_tarea1` (50 eventos guardados) y lanzó las 4 migraciones pendientes. Solo en la base de datos local;
+  - **pedido real:** `PQ-20261110-SK7N7A` (2 × SAL-002 100 ml + SAL-003, BIENVENIDA10, 21,96 €) por `CartService` y `OrderService::createFromCart`. La bandeja lo envió al terminar, y n8n respondió **200** al primer intento (`enviado`);
+  - **n8n sin escuchar:** un cambio a `incidencia` con origen `backoffice` recibió **404** y quedó `pendiente`, con el siguiente intento al cabo de 1 minuto. Es el caso que corrige el ajuste del 404;
+  - **`curl` contra un servidor local temporal** (puerto 8001, token leído del `.env` sin mostrarlo):
+    - sin token o con un token incorrecto: 401;
+    - `incidencia → pendiente_preparacion`: 200 `updated`; repetida: 200 `duplicate`;
+    - `→ creado`: 422 `invalid_transition` con `allowed_next`;
+    - stock al mismo valor: `unchanged`;
+    - `SAL-999`: 404;
+    - ningún cambio de `sync` generó entregas hacia n8n (sin bucle).
+- **Errores detectados en las propuestas de la IA (10.i / 10.j):** ninguno.
+  - **reintento:** con «Listen» activado de nuevo, `php artisan integracion:reintentar` envió la entrega pendiente con **el mismo `event_id`** (`cb6e7e5a-…`). n8n respondió 200, y la entrega quedó `enviado` en el intento 2.
+- **Pendiente:** **antes del paso 7, comprobar si la base de datos de producción tiene el mismo desfase de `events`.**
+
+### 2026-11-10 · Abel · Fase 1, paso 7: cron por URL para DonDominio (repo `tienda-online`, rama `tarea2/integracion-n8n`)
+- **Tarea:** el panel de tareas programadas de DonDominio **solo permite llamar a una URL** (campo «Query», con usuario y contraseña HTTP opcionales), no ejecutar `php artisan schedule:run`. Hacía falta una URL que lance los reintentos de la bandeja de salida.
+- **Tipo de uso:** IA como apoyo al desarrollo (Claude Code).
+- **Partes asistidas:**
+  - `GET /api/integration/cron` (`routes/api.php`);
+  - `EnsureCronCredentials` y `Api/IntegrationCronController`;
+  - `config/services.php`, `.env.example` y `phpunit.xml` (`INTEGRATION_CRON_TOKEN`);
+  - `tests/Feature/IntegrationCronTest.php` (3 tests).
+- **Qué decidió Abel:**
+  - le enseñó a la IA el formulario del panel, y así se vio que el cron solo llama a URLs;
+  - eligió la **opción A**: usuario y contraseña HTTP (Basic Auth) con un secreto propio. Se descartaron el secreto en la URL (quedaría en los logs de acceso, el mismo problema de la corrección C1 del back-office) y reutilizar `INTEGRATION_API_TOKEN` (un secreto filtrado desde el panel abriría también `sync`);
+  - pidió a la IA que lo escribiera.
+- **Qué hizo la IA (escribió el código, a petición de Abel):**
+  - usuario `cron` y contraseña comparada con `hash_equals`; sin contraseña configurada, 401 a todo;
+  - `throttle:10,1`;
+  - un bloqueo de caché (`Cache::lock`), equivalente a `withoutOverlapping()`: si hay otra ejecución en marcha, responde `busy`;
+  - devuelve en JSON el resumen de `retryDue()`;
+  - comprobó que el `.htaccess` de `public/` pasa la cabecera `Authorization` a PHP.
+- **Errores detectados en las propuestas de la IA (10.i / 10.j):**
+  - la hoja de ruta (y la IA) daban por hecho un cron con `php artisan schedule:run`. El panel de DonDominio no lo permite: lo vio Abel al abrir el formulario;
+  - antes, la IA había sugerido subir `vendor/composer/` por si salía un error de clase no encontrada. Abel ejecutó `composer dump-autoload --no-dev` en local, que falló en `package:discover` y dejó el autoload local sin los paquetes de desarrollo. La IA lo restauró con `composer dump-autoload` y comprobó que no hacía falta: el autoload está optimizado pero no es *authoritative*, así que las clases nuevas cargan por PSR-4.
+- **Validación:**
+  - `php artisan test`: **121/121** en verde. Los tests nuevos cubren el 401 sin credenciales, con una contraseña incorrecta, con otro usuario o sin contraseña configurada; el reintento de una entrega que ya toca (mismo `event_id`); y `busy` con el bloqueo tomado.

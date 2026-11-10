@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\EnsureAdmin;
+use App\Http\Middleware\EnsureCronCredentials;
 use App\Http\Middleware\EnsureCustomer;
 use App\Http\Middleware\EnsureIntegrationToken;
 use Illuminate\Foundation\Application;
@@ -20,6 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin' => EnsureAdmin::class,
             'customer' => EnsureCustomer::class,
             'integration.token' => EnsureIntegrationToken::class,
+            'integration.cron' => EnsureCronCredentials::class,
         ]);
 
         // La notificación de Redsys llega desde su servidor (sin token CSRF): se valida por su firma
