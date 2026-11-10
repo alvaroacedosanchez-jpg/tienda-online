@@ -633,3 +633,35 @@ Plantilla para cada entrada:
   - un script transforma cada payload de pedido según el apartado 9 y le aplica las validaciones del back-office: campos obligatorios, estado del catálogo, SKU existente y total = líneas − descuento + envío (±0,01). Los 4 payloads válidos pasan, y `order.created.incompleto.json` falla con los 4 errores que documenta el apartado 13;
   - todos los JSON son válidos;
   - `grep -i odoo` no encuentra ninguna mención en el contrato ni en los payloads.
+
+### 2026-11-10 · Abel · Fase 1, paso 3: emisor de eventos firmados a n8n (repo `tienda-online`, rama `tarea2/integracion-n8n`)
+- **Tarea:** enviar a n8n los 4 eventos de negocio, firmados con HMAC, después del commit y sin que un fallo de n8n pueda hacer fallar una compra.
+- **Tipo de uso:** IA como apoyo al desarrollo (Claude Code).
+- **Partes asistidas:** `app/Services/Integration/EventPayloadBuilder.php` y `WebhookSender.php` (nuevos), `app/Services/EventLogger.php` (el gancho) y `phpunit.xml`.
+- **Qué decidió Abel:**
+  - engancharse dentro de `EventLogger::log()` y no con un *observer*;
+  - aprobó el diseño del micro-objetivo 3.1: un método que devuelve el `data` o `null` si el evento no se envía;
+  - pidió a la IA que escribiera el código.
+- **Qué hizo la IA (escribió el código, a petición de Abel):**
+  - `EventPayloadBuilder`:
+    - aplica las reglas del contrato: solo los 4 tipos; `order.status_changed` solo con el origen `backoffice` (lista blanca); `payment.simulated` solo si es de Redsys;
+    - lee el pedido en el momento de construir el `data`, así que lleva el estado final;
+    - calcula el `product_code` y pasa los importes a número;
+  - `WebhookSender`:
+    - monta el sobre, codifica el JSON una sola vez y firma `timestamp.cuerpo`;
+    - envía ese mismo texto con `withBody`, con un timeout de `config('services.n8n.timeout')`;
+    - nunca lanza excepciones: solo deja aviso en el log;
+    - sin URL o sin secreto configurados, no envía nada;
+  - en `EventLogger::log()`, `DB::afterCommit` solo para los 4 tipos;
+  - en `phpunit.xml`, URL y secreto vacíos, para que los tests nunca llamen al n8n real (el `.env` local ya apunta a n8n);
+  - preparó `send()` separado de `dispatch()` para que el paso 4 (bandeja de salida) pueda reenviar el mismo cuerpo con una firma nueva.
+- **Decisiones del grupo:** las del contrato (paso 2).
+- **Errores detectados en las propuestas de la IA (10.i / 10.j):** ninguno detectado por Abel.
+- **Validación:**
+  - `php artisan test`: **93/93** en verde y Pint sin avisos;
+  - un test temporal (fuera del repo) con `Http::fake` y `Http::preventStrayRequests` hace una compra completa: pedido con BIENVENIDA10, pago aprobado en Redsys, paso a `enviado` desde el panel de admin y una solicitud de soporte. Resultado:
+    - salen **4 peticiones**; los 2 cambios de estado de `markPaid` no se envían;
+    - las 4 firmas se pueden recalcular;
+    - `payment.simulated` lleva `pendiente_preparacion`;
+    - los 3 eventos de pedido, transformados según el apartado 9 del contrato, pasan las validaciones del back-office;
+  - pendiente: la prueba contra el n8n real (necesita MariaDB en local y el flujo escuchando).

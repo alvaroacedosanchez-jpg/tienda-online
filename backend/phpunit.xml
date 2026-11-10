@@ -29,6 +29,10 @@
         <env name="PULSE_ENABLED" value="false"/>
         <!-- Clave PÚBLICA del comercio de pruebas de Redsys (999008881-001, TEST): los tests firman respuestas con ella -->
         <env name="REDSYS_API_KEY" value="TEST_OTk5MDA4ODgxXzAwMV9zcTdIanJVT0JmS21DNTc2SUxnc2tENXNyVTg3MGdKNw"/>
+        <!-- Los tests nunca llaman al n8n real: sin URL no se envía nada (los del emisor usan Http::fake) -->
+        <env name="N8N_WEBHOOK_URL" value=""/>
+        <env name="N8N_WEBHOOK_SECRET" value=""/>
+        <env name="INTEGRATION_API_TOKEN" value=""/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
     </php>
