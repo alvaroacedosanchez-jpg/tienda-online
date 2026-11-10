@@ -728,7 +728,7 @@ Plantilla para cada entrada:
     - un SKU que tiene tamaños, sin indicar el tamaño, da 404;
     - guarda el valor absoluto;
   - **ajuste a la decisión 2 B, propuesto por la IA:** un duplicado **repite la respuesta original** (200 si se aplicó; el mismo 404 o 422 si se rechazó). Si respondiera siempre `200 duplicate`, n8n le diría al back-office que un cambio rechazado está sincronizado.
-- **Decisiones del grupo:** pendiente actualizar el apartado 8 del contrato: ahora se guardan también los rechazos, y los duplicados repiten la respuesta original.
+- **Decisiones del grupo:** a petición de Abel, la IA actualizó el contrato (`SIE-Tarea2`, rama `deploy/gcp`): en el apartado 8, se guardan también los rechazos y los duplicados repiten la respuesta original; en el apartado 7, «envío inicial + 5 reintentos». Pendiente del visto bueno de Antonio y Álvaro.
 - **Errores detectados en las propuestas de la IA (10.i / 10.j):** ninguno detectado por Abel.
 - **Validación:**
   - `php artisan test`: **93/93** en verde y Pint sin avisos;
