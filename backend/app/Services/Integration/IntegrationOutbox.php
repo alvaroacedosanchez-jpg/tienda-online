@@ -105,6 +105,21 @@ class IntegrationOutbox
     }
 
     /**
+     * Vuelve a poner en cola las entregas fallidas (integracion:reintentar --fallidos), por ejemplo cuando ya
+     * se ha corregido el flujo de n8n. Conservan su event_id y su cuerpo: si n8n ya las había procesado,
+     * responderá «duplicate» y no se duplica nada. Empiezan de nuevo con todos sus intentos.
+     */
+    public function requeueFailed(): int
+    {
+        return WebhookDelivery::where('status', WebhookDelivery::FAILED)->update([
+            'status' => WebhookDelivery::PENDING,
+            'attempts' => 0,
+            'next_attempt_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    /**
      * Un intento de envío. Devuelve el estado en que queda la entrega.
      */
     public function attempt(WebhookDelivery $delivery): string
@@ -154,7 +169,7 @@ class IntegrationOutbox
     }
 
     /**
-     * 2xx → enviado · 4xx (salvo 408 y 429) → fallido sin reintentar · 5xx, 408, 429 o sin respuesta → reintentar.
+     * 2xx → enviado · 4xx (salvo 404, 408 y 429) → fallido sin reintentar · 5xx, 404, 408, 429 o sin respuesta → reintentar.
      */
     private function applyResult(WebhookDelivery $delivery, ?int $status, ?string $error): string
     {
@@ -170,7 +185,9 @@ class IntegrationOutbox
             return WebhookDelivery::SENT;
         }
 
-        $retryable = $status === null || $status >= 500 || in_array($status, [408, 429], true);
+        // 404: n8n responde así cuando el flujo está desactivado o en edición ("webhook not registered").
+        // Es temporal, así que se reintenta como un 5xx; el resto de 4xx (salvo 408 y 429) no se arregla repitiendo.
+        $retryable = $status === null || $status >= 500 || in_array($status, [404, 408, 429], true);
         $waits = self::BACKOFF_MINUTES;
         $exhausted = $delivery->attempts > count($waits); // envío inicial + count($waits) reintentos
 

@@ -786,3 +786,16 @@ Plantilla para cada entrada:
     - quitar la comprobación previa de duplicados **no hace fallar ninguno**, porque el índice único de `integration_inbox` dentro de la transacción sigue detectando el duplicado (decisión 1 A del paso 5). Los archivos se restauraron después.
 - **Errores detectados en las propuestas de la IA (10.i / 10.j):** ninguno detectado por Abel.
 - **Validación:** `php artisan test`: **117/117** en verde (93 del paso 0 + 24 nuevos).
+
+### 2026-11-10 · Abel · Fase 1, ajuste: el 404 de n8n se reintenta y se pueden recuperar las entregas fallidas (repos `tienda-online` y `SIE-Tarea2`)
+- **Tarea:** corregir un fallo de diseño del paso 4. Al preparar la prueba contra el n8n real, la IA vio que n8n responde **404** cuando el flujo está desactivado o no está escuchando («webhook not registered»). El código lo trataba como un error definitivo (`fallido`, sin reintentos), así que desactivar un flujo un rato habría hecho perder esos eventos.
+- **Tipo de uso:** IA como apoyo al desarrollo (Claude Code).
+- **Partes asistidas:** `IntegrationOutbox` (404 reintentable y `requeueFailed()`), el comando `integracion:reintentar --fallidos`, `IntegrationOutboxTest` (2 tests) y los apartados 7 del contrato.
+- **Qué decidió Abel:** la opción B, entre las tres que planteó la IA: reintentar el 404 y, además, un comando para volver a poner en cola las entregas fallidas. Pidió a la IA que lo escribiera.
+- **Qué hizo la IA:**
+  - el 404 pasa a reintentarse como un 5xx;
+  - `--fallidos` vuelve a poner en cola las entregas `fallido` con el mismo `event_id` y el mismo cuerpo, y todos sus intentos de nuevo;
+  - tests nuevos: un 404 deja la entrega `pendiente`; una fallida recuperada se envía con el mismo `event_id` y el mismo cuerpo, y sin `--fallidos` el comando no la toca;
+  - contrato: regla de reintentos con el 404, fila nueva en la tabla de respuestas y cómo recuperar las fallidas.
+- **Errores detectados en las propuestas de la IA (10.i / 10.j):** el fallo es de la propia IA. En el paso 4 propuso «4xx → fallido salvo 408 y 429» sin tener en cuenta cómo responde n8n con el flujo desactivado. Lo detectó ella misma antes de la prueba real y lo corrigió con la opción que eligió Abel.
+- **Validación:** `php artisan test`: **118/118** en verde (2 tests nuevos, 1 sustituido) y Pint sin avisos.

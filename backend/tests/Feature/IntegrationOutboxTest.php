@@ -182,19 +182,49 @@ class IntegrationOutboxTest extends TestCase
         $this->assertSame([WebhookDelivery::SENT, 2], [$delivery->fresh()->status, $delivery->fresh()->attempts]);
     }
 
-    public function test_client_errors_are_not_retried_except_429(): void
+    public function test_client_errors_are_not_retried_except_404_and_429(): void
     {
-        Http::fake(['n8n.test/*' => Http::sequence()->push(['result' => 'invalid'], 422)->push('', 429)]);
+        Http::fake(['n8n.test/*' => Http::sequence()
+            ->push(['result' => 'invalid'], 422)
+            ->push('', 429)
+            ->push(['message' => 'The requested webhook "POST piquantum/eventos" is not registered.'], 404)]);
 
         $this->placeOrder();
-        $this->post(route('support.store'), [
-            'name' => 'Laura Prueba', 'email' => 'laura@example.com', 'subject' => 'Duda', 'message' => 'Una pregunta sobre mi pedido',
+        $support = fn (string $subject) => $this->post(route('support.store'), [
+            'name' => 'Laura Prueba', 'email' => 'laura@example.com', 'subject' => $subject, 'message' => 'Una pregunta sobre mi pedido',
         ]);
+        $support('Duda');
+        $support('Otra duda'); // n8n con el flujo desactivado responde 404: es temporal
 
         $this->assertSame(
-            [['order.created', WebhookDelivery::FAILED, 422], ['support.requested', WebhookDelivery::PENDING, 429]],
+            [
+                ['order.created', WebhookDelivery::FAILED, 422],
+                ['support.requested', WebhookDelivery::PENDING, 429],
+                ['support.requested', WebhookDelivery::PENDING, 404],
+            ],
             WebhookDelivery::orderBy('id')->get()->map(fn ($d) => [$d->type, $d->status, $d->last_status_code])->all(),
         );
+    }
+
+    public function test_failed_deliveries_can_be_requeued_with_the_same_event_id(): void
+    {
+        Http::fake(['n8n.test/*' => Http::sequence()->push(['result' => 'invalid'], 422)->push(['result' => 'created'], 200)]);
+        $this->placeOrder();
+        $delivery = WebhookDelivery::sole();
+        $this->assertSame(WebhookDelivery::FAILED, $delivery->status);
+
+        // Sin --fallidos, el comando no toca las fallidas
+        $this->artisan('integracion:reintentar')->expectsOutputToContain('Enviados: 0')->assertSuccessful();
+
+        // Corregido el flujo de n8n, se recuperan a mano
+        $this->artisan('integracion:reintentar --fallidos')
+            ->expectsOutputToContain('Fallidas que vuelven a la cola: 1')
+            ->expectsOutputToContain('Enviados: 1')
+            ->assertSuccessful();
+
+        $this->assertSame([WebhookDelivery::SENT, 1], [$delivery->fresh()->status, $delivery->fresh()->attempts]);
+        $this->assertSame($delivery->event_id, Http::recorded()[1][0]->header('X-Piquantum-Event-Id')[0]);
+        $this->assertSame(Http::recorded()[0][0]->body(), Http::recorded()[1][0]->body());
     }
 
     public function test_the_delivery_fails_after_the_initial_send_and_five_retries(): void
