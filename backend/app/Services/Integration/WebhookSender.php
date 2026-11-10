@@ -4,16 +4,15 @@ namespace App\Services\Integration;
 
 use App\Models\Event;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Throwable;
 
 /**
- * Envía a n8n los eventos de la tienda, firmados con HMAC
+ * Firma y envía a n8n un evento ya codificado
  * (contrato: SIE-Tarea2/integracion/contrato.md, apartados 3 y 4).
  *
- * Nunca lanza excepciones: si n8n falla o no responde, solo se registra en el log,
- * para que una compra no falle nunca por culpa de la integración.
+ * No decide nada: la bandeja de salida (IntegrationOutbox) decide cuándo enviar y qué hacer con la respuesta.
+ * Nunca lanza excepciones, para que una compra no falle nunca por culpa de la integración.
  */
 class WebhookSender
 {
@@ -21,33 +20,8 @@ class WebhookSender
 
     public const SCHEMA_VERSION = '1.0';
 
-    public function __construct(private EventPayloadBuilder $builder) {}
-
     /**
-     * Construye el `data`, lo envuelve en el sobre y lo envía. Se llama después del commit.
-     */
-    public function dispatch(Event $event): void
-    {
-        try {
-            if (! $this->isConfigured()) {
-                return;
-            }
-
-            $data = $this->builder->build($event);
-            if ($data === null) {
-                return; // el contrato dice que este evento no se envía
-            }
-
-            $eventId = (string) Str::uuid();
-            $this->send($event->type, $eventId, $this->envelope($eventId, $event, $data));
-        } catch (Throwable $e) {
-            // El pedido ya está guardado: un fallo aquí no puede convertirse en un error para el cliente
-            Log::error("Integración n8n: no se pudo preparar el evento {$event->type} #{$event->id}: {$e->getMessage()}");
-        }
-    }
-
-    /**
-     * El cuerpo JSON exacto que se envía (y que se firma).
+     * El cuerpo JSON exacto que se envía (y que se firma). Se guarda tal cual en la bandeja de salida.
      */
     public function envelope(string $eventId, Event $event, array $data): string
     {
@@ -62,12 +36,14 @@ class WebhookSender
     }
 
     /**
-     * Firma y envía un cuerpo ya codificado. Devuelve true si n8n responde 2xx.
-     * Cada llamada lleva un timestamp y una firma nuevos (los reintentos reutilizan el cuerpo).
+     * Firma y envía un cuerpo ya codificado. Cada llamada lleva un timestamp y una firma nuevos,
+     * aunque el cuerpo (y su event_id) sea el mismo en todos los reintentos.
+     *
+     * @return array{status: int|null, error: string|null} status null = sin respuesta (tiempo agotado, conexión…)
      */
-    public function send(string $type, string $eventId, string $body): bool
+    public function send(string $type, string $eventId, string $body): array
     {
-        $timestamp = (string) time();
+        $timestamp = (string) now()->getTimestamp(); // reloj de Laravel (los tests pueden moverlo)
 
         try {
             $response = Http::timeout((int) config('services.n8n.timeout'))
@@ -81,16 +57,12 @@ class WebhookSender
                 ->withBody($body, 'application/json')
                 ->post(config('services.n8n.url'));
 
-            if (! $response->successful()) {
-                Log::warning("Integración n8n: {$type} {$eventId} respondió {$response->status()}: ".Str::limit($response->body(), 500));
-            }
-
-            return $response->successful();
+            return [
+                'status' => $response->status(),
+                'error' => $response->successful() ? null : Str::limit($response->body(), 1000),
+            ];
         } catch (Throwable $e) {
-            // Tiempo agotado, DNS, conexión rechazada…
-            Log::warning("Integración n8n: {$type} {$eventId} sin respuesta: {$e->getMessage()}");
-
-            return false;
+            return ['status' => null, 'error' => Str::limit($e->getMessage(), 1000)];
         }
     }
 
@@ -99,7 +71,7 @@ class WebhookSender
         return 'sha256='.hash_hmac('sha256', $timestamp.'.'.$body, (string) config('services.n8n.secret'));
     }
 
-    /** Sin URL o sin secreto no se envía nada (tests, entornos sin integración). */
+    /** Sin URL o sin secreto la integración está desactivada (tests, entornos sin n8n). */
     public function isConfigured(): bool
     {
         return filled(config('services.n8n.url')) && filled(config('services.n8n.secret'));

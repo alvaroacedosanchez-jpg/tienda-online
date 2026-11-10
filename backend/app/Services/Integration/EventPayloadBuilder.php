@@ -31,8 +31,32 @@ class EventPayloadBuilder
     /** order.status_changed: lista blanca de orígenes (apartado 6.3). Solo el panel de admin de la tienda. */
     public const STATUS_CHANGE_ORIGINS = ['backoffice'];
 
+    /**
+     * ¿Se envía este evento según el contrato? Solo mira datos del propio evento,
+     * así que se puede llamar al registrarlo, dentro de la transacción.
+     */
+    public function shouldSend(Event $event): bool
+    {
+        return match ($event->type) {
+            EventLogger::ORDER_CREATED, EventLogger::SUPPORT_REQUESTED => true,
+            // Evita duplicados con payment.simulated y bucles con la integración (apartado 6.3)
+            EventLogger::ORDER_STATUS_CHANGED => in_array($event->origin, self::STATUS_CHANGE_ORIGINS, true),
+            // Solo Redsys de pruebas: las transferencias simuladas no se envían (apartado 6.2)
+            EventLogger::PAYMENT_SIMULATED => $event->payment_id !== null
+                && Payment::whereKey($event->payment_id)->value('method') === Payment::METHOD_REDSYS,
+            default => false,
+        };
+    }
+
+    /**
+     * El `data` del evento, o null si no se envía. Se llama después del commit, con el estado final.
+     */
     public function build(Event $event): ?array
     {
+        if (! $this->shouldSend($event)) {
+            return null;
+        }
+
         return match ($event->type) {
             EventLogger::ORDER_CREATED => $this->orderCreated($event),
             EventLogger::PAYMENT_SIMULATED => $this->paymentSimulated($event),
@@ -51,14 +75,9 @@ class EventPayloadBuilder
 
     private function paymentSimulated(Event $event): ?array
     {
-        $payment = $event->payment_id ? Payment::find($event->payment_id) : null;
-        // Solo Redsys de pruebas: las transferencias simuladas no se envían (apartado 6.2)
-        if (! $payment || $payment->method !== Payment::METHOD_REDSYS) {
-            return null;
-        }
-
+        $payment = Payment::find($event->payment_id);
         $order = $this->loadOrder($event);
-        if (! $order) {
+        if (! $payment || ! $order) {
             return null;
         }
 
@@ -75,11 +94,6 @@ class EventPayloadBuilder
 
     private function orderStatusChanged(Event $event): ?array
     {
-        // Evita duplicados con payment.simulated y bucles con la integración (apartado 6.3)
-        if (! in_array($event->origin, self::STATUS_CHANGE_ORIGINS, true)) {
-            return null;
-        }
-
         $order = $this->loadOrder($event);
         if (! $order) {
             return null;

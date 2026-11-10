@@ -5,8 +5,7 @@ namespace App\Services;
 use App\Models\Event;
 use App\Models\User;
 use App\Services\Integration\EventPayloadBuilder;
-use App\Services\Integration\WebhookSender;
-use Illuminate\Support\Facades\DB;
+use App\Services\Integration\IntegrationOutbox;
 use InvalidArgumentException;
 
 /**
@@ -80,10 +79,10 @@ class EventLogger
 
         $event = Event::create($data);
 
-        // Integración con n8n (Tarea 2): los 4 eventos de negocio se envían DESPUÉS del commit.
-        // Si la transacción se deshace, no se envía nada; sin transacción abierta, se envía ya.
+        // Integración con n8n (Tarea 2): los 4 eventos de negocio pasan a la bandeja de salida,
+        // en la misma transacción que el cambio. El envío va después del commit (IntegrationOutbox).
         if (in_array($type, EventPayloadBuilder::TYPES, true)) {
-            DB::afterCommit(fn () => app(WebhookSender::class)->dispatch($event));
+            app(IntegrationOutbox::class)->record($event);
         }
 
         return $event;

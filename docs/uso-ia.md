@@ -665,3 +665,41 @@ Plantilla para cada entrada:
     - `payment.simulated` lleva `pendiente_preparacion`;
     - los 3 eventos de pedido, transformados según el apartado 9 del contrato, pasan las validaciones del back-office;
   - pendiente: la prueba contra el n8n real (necesita MariaDB en local y el flujo escuchando).
+
+### 2026-11-10 · Abel · Fase 1, paso 4: bandeja de salida (outbox) y reintentos (repo `tienda-online`, rama `tarea2/integracion-n8n`)
+- **Tarea:** que ningún evento hacia n8n se pierda si n8n está caído: se guarda y se reintenta con el mismo `event_id` y el mismo cuerpo.
+- **Tipo de uso:** IA como apoyo al desarrollo (Claude Code).
+- **Partes asistidas:**
+  - migración `webhook_deliveries` y modelo `WebhookDelivery`;
+  - `app/Services/Integration/IntegrationOutbox.php` (nuevo);
+  - cambios en `EventPayloadBuilder` (`shouldSend()`), `WebhookSender` (`send()` devuelve el código HTTP) y `EventLogger`;
+  - `AppServiceProvider`;
+  - comando `integracion:reintentar` y su programación en `routes/console.php`.
+- **Qué decidió Abel** (entre las opciones que planteó la IA con sus pros y contras):
+  - **Decisión 1, opción A:** la fila se guarda en la **misma transacción** que el cambio de negocio y el cuerpo se congela en el primer envío, después del commit, con el estado final del pedido. Se descartó guardar la fila después del commit, porque deja una ventana en la que el evento se puede perder;
+  - **Decisión 2, opción B:** el primer envío se hace con `app()->terminating()`, cuando la respuesta ya ha salido hacia el navegador (con PHP-FPM, el cliente no espera a n8n), y el cron hace de red de seguridad;
+  - pidió a la IA que escribiera el código.
+- **Qué hizo la IA (escribió el código, a petición de Abel):**
+  - `record()` en `EventLogger::log()`: inserta la fila `pendiente`, sin cuerpo, solo si el contrato dice que el evento se envía (`shouldSend()` filtra por tipo, origen y método de pago, sin esperar al commit) y solo si la integración está configurada;
+  - `DB::afterCommit` apunta la fila para su primer envío. Si la transacción se deshace, la fila desaparece con ella;
+  - `attempt()`:
+    - reserva atómica de la fila (`UPDATE … WHERE attempts = n`), para que el envío de la petición y el cron no la manden a la vez;
+    - en el primer intento, construye y congela el cuerpo;
+    - envía con firma nueva y decide según la respuesta: 2xx → `enviado`; 4xx salvo 408 y 429 → `fallido`; 5xx, 408, 429 o sin respuesta → reintentar;
+  - esperas del contrato (1, 2, 5, 10 y 30 min) en `next_attempt_at`: envío inicial más 5 reintentos, y después `fallido`;
+  - el primer intento espera 1 minuto de margen antes de que el cron pueda recogerlo;
+  - el comando `integracion:reintentar` se programa con `everyMinute()->withoutOverlapping()`;
+  - el timestamp de la firma pasa de `time()` a `now()`, para que los tests puedan mover el reloj.
+- **Decisiones del grupo:** ninguna nueva.
+- **Errores detectados en las propuestas de la IA (10.i / 10.j):** ninguno detectado por Abel.
+  - **Fallos de la propia IA al probar, corregidos:** en el test temporal, el segundo `Http::fake()` no sustituía al primero (se usa `Http::sequence()`); y la firma salía igual en el reintento porque `time()` no sigue al reloj de los tests.
+- **Validación:**
+  - `php artisan test`: **93/93** en verde y Pint sin avisos en los archivos nuevos;
+  - un test temporal (fuera del repo, `Http::fake` y `preventStrayRequests`) comprueba:
+    - n8n responde 200: solo `order.created` y `payment.simulated` entran en la bandeja, los dos `enviado` en 1 intento, y el pago con `pendiente_preparacion`;
+    - n8n responde 500: la compra se completa y la fila queda `pendiente` (intento 1, el siguiente en 60 s). El comando no hace nada antes de tiempo; 2 minutos después la envía con **el mismo `event_id` y el mismo cuerpo, y firma nueva**;
+    - sin respuesta: `pendiente`, con el error guardado;
+    - 422 → `fallido`; 429 → `pendiente`;
+    - 503 siempre: `fallido` tras 6 intentos;
+    - transacción deshecha: ninguna fila y ninguna petición;
+  - la compra completa del paso 3 sigue enviando los 4 eventos con firma válida, y los 3 de pedido pasan las validaciones del back-office.
