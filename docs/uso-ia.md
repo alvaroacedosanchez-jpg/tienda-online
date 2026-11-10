@@ -588,3 +588,23 @@ Plantilla para cada entrada:
 - **Qué hizo la IA:** a petición de Abel, movió `claude_tarea1.md` y `CONTEXTO_TAREA2.md` de `.gitignore` a `.git/info/exclude`, que es local y no se versiona.
 - **Errores detectados en las propuestas de la IA (10.i / 10.j):** ninguno.
 - **Validación:** `git check-ignore -v` confirma que los dos archivos siguen ignorados y `git status` queda limpio.
+
+### 2026-11-10 · Abel · Fase 1, paso 1: configuración de la integración (repo `tienda-online`, rama `tarea2/integracion-n8n`)
+- **Tarea:** que la tienda sepa a dónde enviar los eventos a n8n, con qué clave firmarlos y qué token exigir cuando n8n la llame, sin ningún valor real en Git.
+- **Tipo de uso:** IA como apoyo al desarrollo (Claude Code en modo mentor).
+- **Partes asistidas:** `backend/config/services.php` y `backend/.env.example`.
+- **Qué hizo Abel:**
+  - escribió los bloques `n8n` (`url`, `secret`, `timeout`) e `integration` (`token`) en `config/services.php`, leyendo el `.env` solo desde `config/`;
+  - añadió las tres variables vacías a `.env.example`;
+  - generó los secretos de su `.env` local con `openssl`.
+- **Qué hizo la IA:**
+  - explicó para qué sirve cada variable, por qué hay un secreto distinto para cada dirección y por qué el código usa `config()` y no `env()` (con `config:cache`, `env()` devuelve `null`);
+  - revisó la primera versión y señaló los errores para que Abel los corrigiera;
+  - a petición de Abel, escribió los comentarios de `.env.example`: cómo se generan los secretos, la URL de test y la de producción, y con qué variable de la VM tiene que coincidir cada uno.
+- **Errores en el código de Abel que señaló la IA y corrigió Abel:**
+  - `timeout => 12000`, pensando en milisegundos: `Http::timeout()` usa segundos, así que una compra podía quedarse colgada más de 3 horas si n8n no respondía. Abel lo cambió a 5;
+  - espacios alrededor del `=` en `.env.example`;
+  - el `.env` local no tenía las variables, así que la comprobación daba `null`.
+- **Errores detectados en las propuestas de la IA (10.i / 10.j):** ninguno detectado por Abel.
+  - **Fallo de la propia IA:** al comprobar el `.env` local, imprimió el valor de `N8N_WEBHOOK_URL` dando por hecho que sería una URL, pero era una clave aleatoria. Ese valor se descarta y no se usa como secreto.
+- **Validación:** `php artisan tinker` muestra `timeout = 5` (entero), los dos secretos de 64 caracteres y distintos entre sí, y `.env.example` con todas las variables vacías.
