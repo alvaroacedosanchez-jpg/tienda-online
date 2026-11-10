@@ -745,3 +745,44 @@ Plantilla para cada entrada:
     - faltan campos, stock negativo o falta el `event_id`: 422;
     - todo queda en `integration_inbox` con su resultado y su código.
   - **Sin probar:** la carrera real entre dos peticiones simultáneas (SQLite en memoria no la reproduce). Está cubierta por el índice único y la captura de `UniqueConstraintViolationException`.
+
+### 2026-11-10 · Abel · Fase 1, paso 6: tests de la integración (repo `tienda-online`, rama `tarea2/integracion-n8n`)
+- **Tarea:** dejar demostrado con tests lo de los pasos 3 a 5: firma, reglas del contrato, bandeja de salida con reintentos y endpoint de sincronización.
+- **Tipo de uso:** IA como apoyo al desarrollo (Claude Code).
+- **Partes asistidas:** `tests/Feature/IntegrationOutboxTest.php` (11 tests) y `tests/Feature/IntegrationSyncTest.php` (13 tests).
+- **Qué decidió Abel:**
+  - aceptó la propuesta de la IA: convertir en tests definitivos las comprobaciones temporales de los pasos 3 a 5;
+  - pidió a la IA que los escribiera;
+  - pidió subir antes a `SIE-Tarea2` la actualización del contrato (`be8ca83`).
+- **Qué hizo la IA (escribió los tests, a petición de Abel):**
+  - en todos, `Http::preventStrayRequests()`, para que ningún test llame al n8n real, y `Http::fake` para los casos 200, 500, 422, 429, 503 y `ConnectionException`;
+  - **`IntegrationOutboxTest`:**
+    - una compra completa envía exactamente los 4 eventos, con firma recalculable y el sobre del contrato;
+    - `payment.simulated` lleva el estado final;
+    - la transferencia simulada no se envía;
+    - con n8n en 500, la compra se completa y la entrega queda `pendiente`;
+    - el tiempo agotado deja la entrega `pendiente`;
+    - el reintento lleva el mismo `event_id` y el mismo cuerpo, con firma nueva;
+    - 4xx → `fallido`, salvo 429;
+    - `fallido` tras el envío inicial y 5 reintentos;
+    - transacción deshecha → nada;
+    - sin configuración → nada;
+    - formato del `product_code`;
+  - **`IntegrationSyncTest`:**
+    - 401 en sus tres variantes;
+    - `updated` con correo;
+    - duplicado sin segundo correo;
+    - `unchanged`;
+    - sin bucle hacia n8n;
+    - cancelar repone el stock;
+    - `invalid_transition` con `allowed_next`, y su repetición con el mismo 422;
+    - 404 de pedido y de producto;
+    - stock absoluto de un tamaño y de un producto sin tamaños;
+    - 422 de validación;
+    - todo queda en `integration_inbox`;
+  - **prueba de mutación**, para comprobar que los tests detectan errores:
+    - firmar sin el timestamp hace fallar 2 tests;
+    - dejar pasar el origen `redsys` en la lista blanca hace fallar 2 tests;
+    - quitar la comprobación previa de duplicados **no hace fallar ninguno**, porque el índice único de `integration_inbox` dentro de la transacción sigue detectando el duplicado (decisión 1 A del paso 5). Los archivos se restauraron después.
+- **Errores detectados en las propuestas de la IA (10.i / 10.j):** ninguno detectado por Abel.
+- **Validación:** `php artisan test`: **117/117** en verde (93 del paso 0 + 24 nuevos).
