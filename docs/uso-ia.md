@@ -608,3 +608,28 @@ Plantilla para cada entrada:
 - **Errores detectados en las propuestas de la IA (10.i / 10.j):** ninguno detectado por Abel.
   - **Fallo de la propia IA:** al comprobar el `.env` local, imprimió el valor de `N8N_WEBHOOK_URL` dando por hecho que sería una URL, pero era una clave aleatoria. Ese valor se descarta y no se usa como secreto.
 - **Validación:** `php artisan tinker` muestra `timeout = 5` (entero), los dos secretos de 64 caracteres y distintos entre sí, y `.env.example` con todas las variables vacías.
+
+### 2026-11-10 · Abel · Fase 1, paso 2: contrato tienda ↔ n8n adaptado al back-office propio (repo `SIE-Tarea2`, rama `deploy/gcp`)
+- **Tarea:** adaptar el borrador del contrato (pensado para Odoo) a la API del back-office del grupo: qué envía la tienda, cómo se firma, qué responde n8n, qué API ofrece la tienda a n8n y cómo se transforma cada evento al formato de Antonio.
+- **Tipo de uso:** IA como apoyo al desarrollo (Claude Code).
+- **Partes asistidas:** `integracion/contrato.md` y `integracion/payloads/` (se rehacen `payment.simulated.*` y `order.status_changed.json`, se crean `sync.estado.json` y `sync.stock.json`, y se borran `stock.put.json` y `pedido.estado.patch.json`).
+- **Qué decidió Abel:**
+  - un único webhook para todos los eventos;
+  - `payment.simulated` lleva el pedido completo;
+  - un solo endpoint de vuelta, `POST /api/integration/sync`, con token fijo y sin Sanctum;
+  - la tienda no ofrece endpoints de consulta;
+  - **decisión 6:** de `order.status_changed` solo se envía el origen `backoffice` (lista blanca), entre las dos opciones que planteó la IA con sus pros y contras;
+  - pidió a la IA que redactara el contrato con esas decisiones.
+- **Qué hizo la IA (redactó el contrato y los payloads, a petición de Abel):**
+  - revisó en el código qué orígenes de cambio de estado existen de verdad. Vio que ningún cambio de estado usa el origen `cliente` (solo aparece en el evento `payment.simulated`), así que la regla que proponía la guía se quedaba en «solo `backoffice`»;
+  - extendió la decisión 2 a `order.status_changed`: sin endpoints de consulta, n8n solo puede avisar al back-office por `/webhooks/orders`, que exige el pedido completo. **Abel tiene que confirmarlo**;
+  - avisó para el paso 3 de que `payment.simulated` se registra antes de `markPaid`, así que el `data` se tiene que montar con el estado final;
+  - corrigió `payment.method` (`card` → `redsys`, el valor real de `Payment::METHOD_REDSYS`);
+  - revisó el código del back-office y encontró que `/webhooks/orders` descuenta stock aunque el pedido llegue `cancelado`, y no lo repone al pasar a `cancelado`. Lo dejó como decisión abierta 12.C para Antonio, sin tocar su código.
+- **Decisiones del grupo:** pendientes. Antonio y Álvaro tienen que dar el visto bueno. Siguen abiertas: el `ticket_ref` y el `telegram_chat_id` (con Álvaro), el stock en las cancelaciones (con Antonio) y el JSON Schema.
+- **Errores detectados en las propuestas de la IA (10.i / 10.j):** ninguno detectado por Abel hasta ahora.
+  - **Ajuste de la propia IA:** el borrador decía «importes con 2 decimales», pero `json_encode` escribe `6.5`. Se cambió a «redondeado a 2 decimales».
+- **Validación:**
+  - un script transforma cada payload de pedido según el apartado 9 y le aplica las validaciones del back-office: campos obligatorios, estado del catálogo, SKU existente y total = líneas − descuento + envío (±0,01). Los 4 payloads válidos pasan, y `order.created.incompleto.json` falla con los 4 errores que documenta el apartado 13;
+  - todos los JSON son válidos;
+  - `grep -i odoo` no encuentra ninguna mención en el contrato ni en los payloads.
