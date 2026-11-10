@@ -703,3 +703,45 @@ Plantilla para cada entrada:
     - 503 siempre: `fallido` tras 6 intentos;
     - transacción deshecha: ninguna fila y ninguna petición;
   - la compra completa del paso 3 sigue enviando los 4 eventos con firma válida, y los 3 de pedido pasan las validaciones del back-office.
+
+### 2026-11-10 · Abel · Fase 1, paso 5: endpoint `POST /api/integration/sync` (repo `tienda-online`, rama `tarea2/integracion-n8n`)
+- **Tarea:** que n8n pueda aplicar en la tienda los cambios de estado y de stock que hace el operario en el back-office, con token, idempotencia y sin bucles.
+- **Tipo de uso:** IA como apoyo al desarrollo (Claude Code).
+- **Partes asistidas:**
+  - `routes/api.php` y `bootstrap/app.php` (rutas `api` sin Sanctum y alias del middleware);
+  - `EnsureIntegrationToken`;
+  - `Api/IntegrationSyncController`;
+  - `app/Services/Integration/IntegrationSync.php`;
+  - migración `integration_inbox` y modelo `IntegrationInboxEntry`.
+- **Qué decidió Abel** (entre las opciones que planteó la IA con sus pros y contras):
+  - **Decisión 1, opción A:** el `event_id` se apunta en `integration_inbox` **en la misma transacción** que el cambio, y el índice único decide cuál de dos peticiones simultáneas gana. Se descartó «comprobar y después insertar» porque, con dos reintentos a la vez, el correo de «enviado» saldría dos veces;
+  - **Decisión 2, opción B:** se apuntan **también los rechazos** (404 y 422) con la respuesta que se dio, como evidencia de la gestión de errores;
+  - pidió a la IA que escribiera el código.
+- **Qué hizo la IA (escribió el código, a petición de Abel):**
+  - middleware con `hash_equals`: si la tienda no tiene token configurado, responde 401 a todo. `throttle:60,1` va antes que el token, para limitar también los intentos con tokens incorrectos;
+  - cambio de estado:
+    - pasa por `OrderService::changeStatus(…, 'integracion')`, que repone el stock al cancelar y envía el correo de «enviado»;
+    - como el origen `integracion` no está en la lista blanca, no vuelve a n8n;
+    - responde `unchanged` si el pedido ya tiene ese estado, y 422 `invalid_transition` con `allowed_next` si la transición no está permitida;
+  - stock:
+    - resuelve el `product_code` a tamaño o a producto, admitiendo minúsculas;
+    - un SKU que tiene tamaños, sin indicar el tamaño, da 404;
+    - guarda el valor absoluto;
+  - **ajuste a la decisión 2 B, propuesto por la IA:** un duplicado **repite la respuesta original** (200 si se aplicó; el mismo 404 o 422 si se rechazó). Si respondiera siempre `200 duplicate`, n8n le diría al back-office que un cambio rechazado está sincronizado.
+- **Decisiones del grupo:** pendiente actualizar el apartado 8 del contrato: ahora se guardan también los rechazos, y los duplicados repiten la respuesta original.
+- **Errores detectados en las propuestas de la IA (10.i / 10.j):** ninguno detectado por Abel.
+- **Validación:**
+  - `php artisan test`: **93/93** en verde y Pint sin avisos;
+  - un test temporal (fuera del repo) recorre 15 casos:
+    - 401 sin token, con un token incorrecto y con la tienda sin token configurado;
+    - 200 `updated`, con el pedido en `enviado` y **1 correo**;
+    - la misma petición otra vez: 200 `duplicate`, sin segundo correo;
+    - el mismo cambio con otro `event_id`: `unchanged`;
+    - **ninguna entrada nueva** en `webhook_deliveries`, es decir, no hay bucle;
+    - transición no permitida: 422 con `allowed_next: ["incidencia"]`, y su repetición, 422 `duplicate`;
+    - pedido inexistente: 404;
+    - stock de `SAL-002-100ML` (20 → 25) y de `sal-004` (70 → 40);
+    - `SAL-002` sin tamaño: 404;
+    - faltan campos, stock negativo o falta el `event_id`: 422;
+    - todo queda en `integration_inbox` con su resultado y su código.
+  - **Sin probar:** la carrera real entre dos peticiones simultáneas (SQLite en memoria no la reproduce). Está cubierta por el índice único y la captura de `UniqueConstraintViolationException`.

@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\EnsureAdmin;
 use App\Http\Middleware\EnsureCustomer;
+use App\Http\Middleware\EnsureIntegrationToken;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -10,6 +11,7 @@ use Illuminate\Http\Request;
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
+        api: __DIR__.'/../routes/api.php', // POST /api/integration/sync (n8n), sin Sanctum
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
@@ -17,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'admin' => EnsureAdmin::class,
             'customer' => EnsureCustomer::class,
+            'integration.token' => EnsureIntegrationToken::class,
         ]);
 
         // La notificación de Redsys llega desde su servidor (sin token CSRF): se valida por su firma
