@@ -864,3 +864,28 @@ Plantilla para cada entrada:
   - `sync` con el token → 404 `not_found` para `SAL-999`, sin cambios en la tienda;
   - cron con Basic Auth → 200 `ok`;
   - el pedido `PQ-20261111-UMQAX6` → `order.created` (`creado`) y `payment.simulated` (`pendiente_preparacion`) quedaron `pendiente` mientras n8n respondía 404, y se enviaron con su mismo `event_id` en el segundo intento (HTTP 200) al llamar al cron después de publicar el flujo. **La prueba de extremo a extremo tienda → n8n en producción queda superada,** y el patrón *outbox* se ha visto funcionar en un caso real.
+
+### 2026-11-11 · Abel · Fase 3, escenario 1 (en curso): flujo de n8n tienda → back-office (n8n, flujo «Piquantum · Eventos tienda»)
+- **Tarea:** construir en n8n el flujo que recibe los eventos de la tienda, verifica la firma, valida, transforma y llama a `POST /api/v1/webhooks/orders` del back-office.
+- **Tipo de uso:** IA como apoyo al desarrollo (Claude Code). El flujo lo monta Abel nodo a nodo en n8n.
+- **Qué decidió Abel:**
+  - opción A: montar el flujo él mismo y que la IA le dé el código de los nodos Code y la configuración de cada nodo (descartado importar un JSON hecho por la IA);
+  - opción c para `support.requested`: responder 503 hasta que Álvaro termine el escenario 3, para que la tienda lo reintente y después se recupere con `--fallidos`.
+- **Qué hizo Abel:**
+  - montó el Webhook (respuesta con *Respond to Webhook*), el nodo «Verificamos firma», el If con la respuesta 401, el Switch por tipo (salidas de pedido, 503 y 400) y el nodo «Validar» con su If y su respuesta 422;
+  - igualó el secreto local con el de la VM (huella `039e4add` en la tienda, la VM y n8n).
+- **Qué hizo la IA:**
+  - escribió el código de los nodos Code:
+    - «Verificar firma»: `getBinaryDataBuffer` para el cuerpo exacto, HMAC de `timestamp.cuerpo`, `timingSafeEqual` y ventana de 5 minutos;
+    - «Validar»: reglas del apartado 6 del contrato, con los mismos textos de error que el apartado 13;
+    - «Transformar»: tabla del apartado 9 del contrato;
+  - dio las expresiones del Switch y de las respuestas;
+  - revisó en el código del back-office qué responde `/webhooks/orders` (200 o 422 con `error_code`) y propuso tratar `ERR_DB_TRANSACTION` como temporal (503).
+- **Errores detectados durante la construcción y cómo se corrigieron:**
+  - lanzar «Listen for test event» desde dentro del nodo Webhook solo ejecuta ese nodo (n8n respondía 200 vacío). Hay que usar «Execute workflow» desde el lienzo. La IA no lo había avisado;
+  - el *Response Body* pegado como `{{ {…} }}` quedaba en modo *Fixed* y daba «Invalid JSON» (HTTP 500). Se cambió a modo *Expression* con `JSON.stringify(...)` en todas las respuestas;
+  - la vista previa de `$env.*` muestra «not accessible via UI»: es la protección de secretos de n8n, no un error.
+- **Validación hasta ahora:**
+  - pedido local firmado → firma válida; con el secreto alterado → 401 «firma incorrecta»;
+  - `order.created.incompleto.json` → **422 con los 4 errores** del apartado 13 del contrato, sin llegar al back-office.
+- **Pendiente:** pasos 5.3 y 5.4 (Switch de la respuesta del back-office y respuestas 200, 422 y 503), prueba con el payload válido (`created`, y después `duplicate`), publicar el flujo y exportarlo a `SIE-Tarea2`.
