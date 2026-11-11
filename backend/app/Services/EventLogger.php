@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\Event;
 use App\Models\User;
+use App\Services\Integration\EventPayloadBuilder;
+use App\Services\Integration\IntegrationOutbox;
 use InvalidArgumentException;
 
 /**
@@ -75,7 +77,15 @@ class EventLogger
             'occurred_at' => now(),
         ]);
 
-        return Event::create($data);
+        $event = Event::create($data);
+
+        // Integración con n8n (Tarea 2): los 4 eventos de negocio pasan a la bandeja de salida,
+        // en la misma transacción que el cambio. El envío va después del commit (IntegrationOutbox).
+        if (in_array($type, EventPayloadBuilder::TYPES, true)) {
+            app(IntegrationOutbox::class)->record($event);
+        }
+
+        return $event;
     }
 
     /**

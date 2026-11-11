@@ -42,4 +42,17 @@ return [
         'merchant_name' => env('REDSYS_MERCHANT_NAME', 'Piquantum (prototipo)'),
     ],
 
+    // tienda -> n8n: URL, clave compartida y timeout
+    'n8n' => [
+        'url' => env('N8N_WEBHOOK_URL'),
+        'secret' => env('N8N_WEBHOOK_SECRET'),
+        'timeout' => 5,
+    ],
+    // n8n -> tienda
+    'integration' => [
+        'token' => env('INTEGRATION_API_TOKEN'),
+        // Cron del panel de DonDominio (solo llama a URLs): contraseña HTTP de GET /api/integration/cron
+        'cron_token' => env('INTEGRATION_CRON_TOKEN'),
+    ],
+
 ];
