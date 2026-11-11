@@ -843,3 +843,24 @@ Plantilla para cada entrada:
   - antes, la IA había sugerido subir `vendor/composer/` por si salía un error de clase no encontrada. Abel ejecutó `composer dump-autoload --no-dev` en local, que falló en `package:discover` y dejó el autoload local sin los paquetes de desarrollo. La IA lo restauró con `composer dump-autoload` y comprobó que no hacía falta: el autoload está optimizado pero no es *authoritative*, así que las clases nuevas cargan por PSR-4.
 - **Validación:**
   - `php artisan test`: **121/121** en verde. Los tests nuevos cubren el 401 sin credenciales, con una contraseña incorrecta, con otro usuario o sin contraseña configurada; el reintento de una entrega que ya toca (mismo `event_id`); y `busy` con el bloqueo tomado.
+
+### 2026-11-11 · Abel · Fase 1, paso 7: publicación en DonDominio y prueba de extremo a extremo (repos `tienda-online` y `SIE-Tarea2`, VM)
+- **Tarea:** dejar la integración funcionando en producción: secretos en la VM y en la tienda, cron, y un pedido real que llegue a n8n.
+- **Tipo de uso:** IA como apoyo al desarrollo (Claude Code).
+- **Qué hizo Abel:**
+  - subió por FTPS el código de la integración;
+  - generó los secretos en la VM (que estaban vacíos) y los copió al `.env` de la tienda;
+  - recargó n8n con `docker compose up -d` y comprobó que tenía las 3 variables cargadas;
+  - hizo los pedidos de prueba con la tarjeta de Redsys y publicó el flujo de n8n.
+- **Qué hizo la IA:**
+  - comprobó en modo lectura el estado de producción (`migrate:status`, esquema de `events`) y, **con la confirmación de Abel**, lanzó las 2 migraciones de la integración sin `--seed`;
+  - dio los pasos para generar los secretos en la VM con `sed` y `$(openssl rand -hex 32)`, sin mostrarlos ni dejarlos en el historial, y para comprobar que n8n los tenía sin imprimir sus valores;
+  - preparó comprobaciones con `curl` y `read -s`, para que los tokens no queden en el historial ni pasen por la IA;
+  - diagnosticó los dos fallos leyendo la bandeja de salida de producción en modo lectura:
+    1. el primer pedido no generó envíos porque faltaba `N8N_WEBHOOK_URL` en el `.env` de la tienda;
+    2. el segundo recibió 404 «webhook not registered» porque el flujo de n8n no estaba **publicado**. En la versión actual de n8n, la URL de producción solo usa la versión publicada.
+- **Errores detectados en las propuestas de la IA (10.i / 10.j):** la IA habló de «activar» el flujo (el interruptor *Active* de versiones anteriores de n8n); en esta versión se hace con **Publish**. Abel lo preguntó y se corrigió la instrucción.
+- **Validación:**
+  - `sync` con el token → 404 `not_found` para `SAL-999`, sin cambios en la tienda;
+  - cron con Basic Auth → 200 `ok`;
+  - el pedido `PQ-20261111-UMQAX6` → `order.created` (`creado`) y `payment.simulated` (`pendiente_preparacion`) quedaron `pendiente` mientras n8n respondía 404, y se enviaron con su mismo `event_id` en el segundo intento (HTTP 200) al llamar al cron después de publicar el flujo. **La prueba de extremo a extremo tienda → n8n en producción queda superada,** y el patrón *outbox* se ha visto funcionar en un caso real.
