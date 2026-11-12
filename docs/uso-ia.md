@@ -902,3 +902,27 @@ Plantilla para cada entrada:
   - **demo:** con el flujo **publicado**, Abel hizo un pedido real en www.piquantum.onl y llegó solo al back-office;
   - **exportación:** la IA revisó el JSON antes de subirlo (sin secretos, todo por `$env`; sin credenciales; sin *pinData*; `instanceId` no es secreto), lo renombró a `escenario1_eventos_tienda.json` y, a petición de Abel, lo subió en la rama `n8n/escenario1` de `SIE-Tarea2` (commit `d8f447c`), sacada de `main`.
 - **Pendiente:** igualar el stock del back-office antes de grabar (los payloads ficticios lo han descontado) y abrir el PR de `n8n/escenario1` a `main`.
+
+### 2026-11-12 · Abel · Fase 3, escenario 2: flujo de n8n back-office → tienda (n8n, flujo «Piquantum - Cambios del back-office»)
+- **Tarea:** que los cambios del operario en el back-office (estado del pedido y stock) se apliquen en la tienda a través de n8n.
+- **Tipo de uso:** IA como apoyo al desarrollo (Claude Code).
+- **Qué decidió Abel:**
+  - comprobó en `PLAN_TAREA_2.md` (apartado 6) que el escenario 2 le corresponde a él, y lo presenta él en el bloque 1 del screencast;
+  - pidió a la IA el **JSON completo del flujo** para importarlo, a diferencia del escenario 1, que montó nodo a nodo;
+  - dejó para el final del desarrollo igualar el stock del back-office con el de la tienda (vaciar la BD del back-office y cargar el stock real).
+- **Qué hizo la IA:**
+  - localizó dónde envía el back-office sus avisos: `N8N_WEBHOOK_OPERATIONAL_CHANGE_URL` no está en el `.env`, la fija el `docker-compose.yml` (`http://n8n:5678/webhook/piquantum-operational-change`, por la red interna y a la URL de producción);
+  - generó el JSON del flujo usando como plantilla la exportación del escenario 1, para que coincidieran las versiones de los nodos:
+    - Webhook con *Raw Body*;
+    - «Verificar firma»: HMAC **solo del cuerpo** con `ERP_WEBHOOK_SECRET`. A diferencia de la tienda, no hay timestamp: el back-office reintenta con el mismo cuerpo byte a byte, y lo que protege contra la repetición es el `event_id` en `integration_inbox`;
+    - Switch por `event_type`, «A sync de estado» y «A sync de stock» (con el `event_id` del aviso), y HTTP a `PIQUANTUM_SYNC_URL` con Bearer;
+    - **200** al back-office solo si la tienda responde 200; **502** en cualquier otro caso, para que el back-office reintente y, tras 5 intentos, marque `ERROR_SINCRONIZACION`;
+  - antes de entregarlo, comprobó las conexiones, el cierre de las expresiones y la sintaxis del JavaScript;
+  - al revisar la exportación del escenio 1, vio que «422 - Rechazado» y «503 - BO no disponible» tenían el *Response Body* sin el `}}` final.
+- **Errores detectados y cómo se corrigieron:**
+  - el primer 401 «firma incorrecta» no era un fallo del flujo. La IA lo diagnosticó con huellas SHA-256, sin ver los secretos: el primer secreto pegado estaba **vacío** (huella `e3b0c442`, la de un texto vacío) y el segundo era el de la **tienda** (`039e4add`), no el del back-office (`43129ac6`);
+  - un 404 «webhook not registered» por lanzar el `curl` sin pulsar «Execute workflow».
+- **Validación:**
+  - aviso firmado de un pedido inexistente → **502**, con `shop_status: 404` y `not_found`. El rechazo queda registrado en `integration_inbox` de la tienda;
+  - **demo en producción:** un pedido real cambiado a «enviado» en el back-office → la tienda lo pasa a Enviado, se envía el correo al cliente y el back-office lo marca SINCRONIZADO; el cambio de stock de un producto en el back-office → mismo valor en la tienda.
+- **Pendiente:** exportar el flujo a `SIE-Tarea2/n8n/workflows/` y programar los reintentos de los avisos del back-office (nada los lanza ahora).
