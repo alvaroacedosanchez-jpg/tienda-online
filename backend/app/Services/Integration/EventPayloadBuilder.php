@@ -143,8 +143,10 @@ class EventPayloadBuilder
 
     /**
      * Bloques comunes de los eventos de pedido: la "foto" completa del pedido (apartado 6.1).
+     * También la usa la sincronización inicial (GET /api/integration/pedidos). El pedido debe venir
+     * con `customer` e `items.product` cargados.
      */
-    private function orderSnapshot(Order $order): array
+    public function orderSnapshot(Order $order): array
     {
         return [
             'order' => [

@@ -938,3 +938,40 @@ Plantilla para cada entrada:
 - **Errores detectados:** al importarlo, n8n no conservó el ajuste «guardar solo las ejecuciones con error», así que guarda las 288 ejecuciones diarias. Abel lo cambia en los *Settings* del flujo.
 - **Validación:** Abel lo probó y lo publicó: ejecución manual con respuesta `ok`, y los avisos pendientes se reenvían.
 - **Resultado de conjunto:** las dos direcciones usan el patrón *outbox* con reintentos y son idempotentes por `event_id` en el extremo que recibe (back-office: `erp_processed_events`; tienda: `integration_inbox`).
+
+### 2026-11-12 · Abel · Fase 3: sincronización inicial tienda → back-office por API (repo `tienda-online` y n8n)
+- **Tarea:** que el back-office tenga los mismos datos que la tienda (catálogo, stock, pedidos y clientes), porque el enunciado exige que los datos cuadren.
+- **Tipo de uso:** IA como apoyo al desarrollo (Claude Code).
+- **Qué decidió Abel:**
+  - un flujo de n8n de ejecución manual, para ejecutarlo una vez;
+  - que mande la tienda, porque es la que crea el catálogo, las ventas y los pedidos, y el stock del back-office está contaminado por las pruebas;
+  - incluir los **pedidos históricos**, no solo el catálogo, para que cuadre el cuadro de mando;
+  - descartó volcar los datos con SQL directo entre las dos bases de datos, después de que la IA explicara por qué no conviene: MariaDB y SQLite son motores distintos; habría que replicar a mano las reglas del back-office (estado de pago, prioridad, segmento VIP); rompe la independencia de los sistemas (integración por base de datos compartida); no deja trazabilidad ni idempotencia; y obliga a escribir en la base de datos de Antonio.
+- **Qué hizo la IA (escribió el código y el flujo, a petición de Abel):**
+  - en la tienda:
+    - `GET /api/integration/catalogo`: el catálogo ya en el formato de `/inventory/import`, una fila por tamaño;
+    - `GET /api/integration/pedidos`: todos los pedidos, del más antiguo al más reciente, con la misma «foto» que los eventos, la fecha real y el método de pago;
+    - los dos son de solo lectura y usan el mismo token que `sync`;
+    - `orderSnapshot()` pasa a ser público para reutilizarlo;
+    - 3 tests nuevos;
+  - en n8n, el flujo «Piquantum - Sincronización inicial (manual)»:
+    - lee los pedidos y el catálogo;
+    - carga un **stock previo** (stock de la tienda + unidades de los pedidos), para que el back-office no rechace los pedidos antiguos por falta de stock y para no descontarlo dos veces;
+    - envía los pedidos uno a uno, con `event_id` fijo `sync-PQ-…` (ejecutarlo dos veces da `duplicate`), `event_type: order.synced`, la fecha real (histórico por día del cuadro de mando) y el estado actual;
+    - termina cargando el **stock real** de la tienda y muestra un resumen con los pedidos por resultado, los rechazados y si el stock ha quedado cuadrado;
+  - comprobó en el código del back-office que acepta cualquier `event_type` (solo lo registra), qué devuelve `/inventory/import` y que `payment_method` es opcional.
+- **Errores detectados:** el primer test de pedidos daba por hecho una base de datos sin pedidos, pero el *seeder* de la tienda crea 4. Se corrigió para comprobar todos los pedidos y buscar los del test por referencia.
+- **Validación:**
+  - `php artisan test`: **124/124** en verde y Pint sin avisos;
+  - simulación de los nodos Code con datos de ejemplo (3 pedidos, uno cancelado y uno con descuento): el stock previo se calcula bien (17+3=20 y 68+2=70), los pedidos salen con su fecha y su estado, y un rechazo aparece en el resumen.
+- **Cambio de contrato pendiente:** la decisión 7 («la tienda no ofrece endpoints de consulta») pasa a tener dos excepciones de solo lectura para la sincronización inicial. Hay que actualizar el apartado 8.
+- **Ejecución en producción (12-nov):** Abel subió los 3 archivos a DonDominio, vació el back-office (volumen `erp_db`) y ejecutó el flujo:
+  - **12 pedidos enviados → 12 `created`, 0 rechazados;**
+  - stock previo: 10 actualizados y 3 sin cambios;
+  - **stock real: 0 actualizados y 13 sin cambios.** Después de cargar los pedidos, el stock del back-office ya coincidía exactamente con el de la tienda, lo que confirma el cálculo del stock previo;
+  - el back-office queda con los mismos pedidos, clientes y stock que la tienda.
+- **Cierre (12-nov):**
+  - Abel confirmó la copia de seguridad del volumen antes de vaciarlo (`erp_db_antes_sync.tgz`);
+  - a petición de Abel, la IA actualizó el contrato (`SIE-Tarea2`): apartado 1 (nueva dirección de carga inicial), apartado 8 (las tres rutas) y el **8.1 nuevo** (formato de los endpoints, el stock previo, `event_id` `sync-…`, `order.synced` y el resultado). Revisó la decisión 7 y añadió la 12 (carga inicial por API, no por SQL);
+  - subió el flujo a `SIE-Tarea2/n8n/workflows/sincronizacion_inicial.json`, el mismo JSON que se importó, revisado (sin secretos ni credenciales).
+- **Pendiente:** incidencias de soporte antiguas, cuando Álvaro termine el escenario 3.
