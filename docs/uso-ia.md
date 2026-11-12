@@ -888,4 +888,17 @@ Plantilla para cada entrada:
 - **Validación hasta ahora:**
   - pedido local firmado → firma válida; con el secreto alterado → 401 «firma incorrecta»;
   - `order.created.incompleto.json` → **422 con los 4 errores** del apartado 13 del contrato, sin llegar al back-office.
-- **Pendiente:** pasos 5.3 y 5.4 (Switch de la respuesta del back-office y respuestas 200, 422 y 503), prueba con el payload válido (`created`, y después `duplicate`), publicar el flujo y exportarlo a `SIE-Tarea2`.
+- **12-nov · pasos 5.1 a 5.4:**
+  - Abel montó «Transformar», el HTTP Request al back-office (`{{ $env.ERP_API_URL }}/webhooks/orders`, con `X-Integration-Token` desde `$env`), el Switch de la respuesta y las respuestas 200, 422 `rejected` y 503;
+  - la IA dio el código y las expresiones, y antes revisó los cambios que Antonio subió ese día a `main` de `SIE-Tarea2` (filtros, exportación CSV/JSON y pestaña de clientes). No tocan la API, el esquema ni el procesamiento de pedidos, así que no afectan a la integración. Encontró un fallo en la pestaña de clientes (usa `full_name` y `address_summary`, que no existen); Abel decidió no intervenir en el trabajo de Antonio.
+- **Errores detectados durante la construcción (12-nov):**
+  - la URL del HTTP Request tenía una sola llave (`{ $env… }}`) y n8n la tomaba como texto: «Invalid URL». La petición no llegaba al back-office;
+  - la respuesta «503 - BO no disponible» contestaba 200 sin cuerpo (le faltaban *Respond With: JSON* y el *Response Code*). En producción, eso habría hecho que la tienda diera por entregado un pedido que no había llegado;
+  - las expresiones `$('Transformar')` no coincidían con el nombre del nodo («Parsear»): se renombró;
+  - la IA atribuyó por error al `curl` las 2 entradas del registro del back-office; eran de la carga del catálogo del 9-nov. Se corrigió al ver la captura.
+- **Validación (12-nov):** `order.created.valido.json` por la URL de test → **200 `created`** (pedido PQ-20261110-A7K3QZ en el back-office, 2 líneas y stock descontado). El mismo evento otra vez → **200 `duplicate`** (idempotencia de extremo a extremo por `event_id`).
+- **Cierre del escenario 1 (12-nov):**
+  - **rama de error:** un pedido con un SKU inexistente (`SAL-999-50ML`) → **422 `rejected`** con `ERR_ENTIDAD_NO_ENCONTRADA`, sin crear pedido ni tocar el stock. La primera vez dio 404 porque en modo test el webhook solo atiende una llamada por cada «Execute workflow»;
+  - **demo:** con el flujo **publicado**, Abel hizo un pedido real en www.piquantum.onl y llegó solo al back-office;
+  - **exportación:** la IA revisó el JSON antes de subirlo (sin secretos, todo por `$env`; sin credenciales; sin *pinData*; `instanceId` no es secreto), lo renombró a `escenario1_eventos_tienda.json` y, a petición de Abel, lo subió en la rama `n8n/escenario1` de `SIE-Tarea2` (commit `d8f447c`), sacada de `main`.
+- **Pendiente:** igualar el stock del back-office antes de grabar (los payloads ficticios lo han descontado) y abrir el PR de `n8n/escenario1` a `main`.
