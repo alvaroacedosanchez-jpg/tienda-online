@@ -888,4 +888,90 @@ Plantilla para cada entrada:
 - **Validación hasta ahora:**
   - pedido local firmado → firma válida; con el secreto alterado → 401 «firma incorrecta»;
   - `order.created.incompleto.json` → **422 con los 4 errores** del apartado 13 del contrato, sin llegar al back-office.
-- **Pendiente:** pasos 5.3 y 5.4 (Switch de la respuesta del back-office y respuestas 200, 422 y 503), prueba con el payload válido (`created`, y después `duplicate`), publicar el flujo y exportarlo a `SIE-Tarea2`.
+- **12-nov · pasos 5.1 a 5.4:**
+  - Abel montó «Transformar», el HTTP Request al back-office (`{{ $env.ERP_API_URL }}/webhooks/orders`, con `X-Integration-Token` desde `$env`), el Switch de la respuesta y las respuestas 200, 422 `rejected` y 503;
+  - la IA dio el código y las expresiones, y antes revisó los cambios que Antonio subió ese día a `main` de `SIE-Tarea2` (filtros, exportación CSV/JSON y pestaña de clientes). No tocan la API, el esquema ni el procesamiento de pedidos, así que no afectan a la integración. Encontró un fallo en la pestaña de clientes (usa `full_name` y `address_summary`, que no existen); Abel decidió no intervenir en el trabajo de Antonio.
+- **Errores detectados durante la construcción (12-nov):**
+  - la URL del HTTP Request tenía una sola llave (`{ $env… }}`) y n8n la tomaba como texto: «Invalid URL». La petición no llegaba al back-office;
+  - la respuesta «503 - BO no disponible» contestaba 200 sin cuerpo (le faltaban *Respond With: JSON* y el *Response Code*). En producción, eso habría hecho que la tienda diera por entregado un pedido que no había llegado;
+  - las expresiones `$('Transformar')` no coincidían con el nombre del nodo («Parsear»): se renombró;
+  - la IA atribuyó por error al `curl` las 2 entradas del registro del back-office; eran de la carga del catálogo del 9-nov. Se corrigió al ver la captura.
+- **Validación (12-nov):** `order.created.valido.json` por la URL de test → **200 `created`** (pedido PQ-20261110-A7K3QZ en el back-office, 2 líneas y stock descontado). El mismo evento otra vez → **200 `duplicate`** (idempotencia de extremo a extremo por `event_id`).
+- **Cierre del escenario 1 (12-nov):**
+  - **rama de error:** un pedido con un SKU inexistente (`SAL-999-50ML`) → **422 `rejected`** con `ERR_ENTIDAD_NO_ENCONTRADA`, sin crear pedido ni tocar el stock. La primera vez dio 404 porque en modo test el webhook solo atiende una llamada por cada «Execute workflow»;
+  - **demo:** con el flujo **publicado**, Abel hizo un pedido real en www.piquantum.onl y llegó solo al back-office;
+  - **exportación:** la IA revisó el JSON antes de subirlo (sin secretos, todo por `$env`; sin credenciales; sin *pinData*; `instanceId` no es secreto), lo renombró a `escenario1_eventos_tienda.json` y, a petición de Abel, lo subió en la rama `n8n/escenario1` de `SIE-Tarea2` (commit `d8f447c`), sacada de `main`.
+- **Pendiente:** igualar el stock del back-office antes de grabar (los payloads ficticios lo han descontado) y abrir el PR de `n8n/escenario1` a `main`.
+
+### 2026-11-12 · Abel · Fase 3, escenario 2: flujo de n8n back-office → tienda (n8n, flujo «Piquantum - Cambios del back-office»)
+- **Tarea:** que los cambios del operario en el back-office (estado del pedido y stock) se apliquen en la tienda a través de n8n.
+- **Tipo de uso:** IA como apoyo al desarrollo (Claude Code).
+- **Qué decidió Abel:**
+  - comprobó en `PLAN_TAREA_2.md` (apartado 6) que el escenario 2 le corresponde a él, y lo presenta él en el bloque 1 del screencast;
+  - pidió a la IA el **JSON completo del flujo** para importarlo, a diferencia del escenario 1, que montó nodo a nodo;
+  - dejó para el final del desarrollo igualar el stock del back-office con el de la tienda (vaciar la BD del back-office y cargar el stock real).
+- **Qué hizo la IA:**
+  - localizó dónde envía el back-office sus avisos: `N8N_WEBHOOK_OPERATIONAL_CHANGE_URL` no está en el `.env`, la fija el `docker-compose.yml` (`http://n8n:5678/webhook/piquantum-operational-change`, por la red interna y a la URL de producción);
+  - generó el JSON del flujo usando como plantilla la exportación del escenario 1, para que coincidieran las versiones de los nodos:
+    - Webhook con *Raw Body*;
+    - «Verificar firma»: HMAC **solo del cuerpo** con `ERP_WEBHOOK_SECRET`. A diferencia de la tienda, no hay timestamp: el back-office reintenta con el mismo cuerpo byte a byte, y lo que protege contra la repetición es el `event_id` en `integration_inbox`;
+    - Switch por `event_type`, «A sync de estado» y «A sync de stock» (con el `event_id` del aviso), y HTTP a `PIQUANTUM_SYNC_URL` con Bearer;
+    - **200** al back-office solo si la tienda responde 200; **502** en cualquier otro caso, para que el back-office reintente y, tras 5 intentos, marque `ERROR_SINCRONIZACION`;
+  - antes de entregarlo, comprobó las conexiones, el cierre de las expresiones y la sintaxis del JavaScript;
+  - al revisar la exportación del escenio 1, vio que «422 - Rechazado» y «503 - BO no disponible» tenían el *Response Body* sin el `}}` final.
+- **Errores detectados y cómo se corrigieron:**
+  - el primer 401 «firma incorrecta» no era un fallo del flujo. La IA lo diagnosticó con huellas SHA-256, sin ver los secretos: el primer secreto pegado estaba **vacío** (huella `e3b0c442`, la de un texto vacío) y el segundo era el de la **tienda** (`039e4add`), no el del back-office (`43129ac6`);
+  - un 404 «webhook not registered» por lanzar el `curl` sin pulsar «Execute workflow».
+- **Validación:**
+  - aviso firmado de un pedido inexistente → **502**, con `shop_status: 404` y `not_found`. El rechazo queda registrado en `integration_inbox` de la tienda;
+  - **demo en producción:** un pedido real cambiado a «enviado» en el back-office → la tienda lo pasa a Enviado, se envía el correo al cliente y el back-office lo marca SINCRONIZADO; el cambio de stock de un producto en el back-office → mismo valor en la tienda.
+- **Pendiente:** exportar el flujo a `SIE-Tarea2/n8n/workflows/` y programar los reintentos de los avisos del back-office (nada los lanza ahora).
+
+### 2026-11-12 · Abel · Fase 3: reintentos de los avisos del back-office (n8n, flujo «Piquantum - Reintentos del back-office»)
+- **Tarea:** que los avisos del back-office que no llegan a n8n (porque está caído, reiniciándose o con el flujo despublicado) se reenvíen solos. El back-office tenía el endpoint (`POST /api/v1/internal/webhooks/retry`), pero nada lo llamaba.
+- **Tipo de uso:** IA como apoyo al desarrollo (Claude Code).
+- **Qué decidió Abel:** aceptó la propuesta de la IA (un tercer flujo en n8n en lugar de un cron en la VM) y le pidió el JSON para importarlo.
+- **Qué hizo la IA:**
+  - leyó el código del endpoint (reenvía hasta 50 avisos `PENDIENTE`, sin espera entre intentos, y tras 5 intentos `FALLIDO`);
+  - generó el flujo con un *Schedule Trigger* cada 5 minutos (para que un aviso tenga unos 25 minutos antes de agotarse) y un HTTP Request con un timeout de 120 s (cada reintento encadena back-office → n8n → tienda);
+  - revisó la exportación (sin secretos) y la subió a `SIE-Tarea2` con los otros dos flujos.
+- **Errores detectados:** al importarlo, n8n no conservó el ajuste «guardar solo las ejecuciones con error», así que guarda las 288 ejecuciones diarias. Abel lo cambia en los *Settings* del flujo.
+- **Validación:** Abel lo probó y lo publicó: ejecución manual con respuesta `ok`, y los avisos pendientes se reenvían.
+- **Resultado de conjunto:** las dos direcciones usan el patrón *outbox* con reintentos y son idempotentes por `event_id` en el extremo que recibe (back-office: `erp_processed_events`; tienda: `integration_inbox`).
+
+### 2026-11-12 · Abel · Fase 3: sincronización inicial tienda → back-office por API (repo `tienda-online` y n8n)
+- **Tarea:** que el back-office tenga los mismos datos que la tienda (catálogo, stock, pedidos y clientes), porque el enunciado exige que los datos cuadren.
+- **Tipo de uso:** IA como apoyo al desarrollo (Claude Code).
+- **Qué decidió Abel:**
+  - un flujo de n8n de ejecución manual, para ejecutarlo una vez;
+  - que mande la tienda, porque es la que crea el catálogo, las ventas y los pedidos, y el stock del back-office está contaminado por las pruebas;
+  - incluir los **pedidos históricos**, no solo el catálogo, para que cuadre el cuadro de mando;
+  - descartó volcar los datos con SQL directo entre las dos bases de datos, después de que la IA explicara por qué no conviene: MariaDB y SQLite son motores distintos; habría que replicar a mano las reglas del back-office (estado de pago, prioridad, segmento VIP); rompe la independencia de los sistemas (integración por base de datos compartida); no deja trazabilidad ni idempotencia; y obliga a escribir en la base de datos de Antonio.
+- **Qué hizo la IA (escribió el código y el flujo, a petición de Abel):**
+  - en la tienda:
+    - `GET /api/integration/catalogo`: el catálogo ya en el formato de `/inventory/import`, una fila por tamaño;
+    - `GET /api/integration/pedidos`: todos los pedidos, del más antiguo al más reciente, con la misma «foto» que los eventos, la fecha real y el método de pago;
+    - los dos son de solo lectura y usan el mismo token que `sync`;
+    - `orderSnapshot()` pasa a ser público para reutilizarlo;
+    - 3 tests nuevos;
+  - en n8n, el flujo «Piquantum - Sincronización inicial (manual)»:
+    - lee los pedidos y el catálogo;
+    - carga un **stock previo** (stock de la tienda + unidades de los pedidos), para que el back-office no rechace los pedidos antiguos por falta de stock y para no descontarlo dos veces;
+    - envía los pedidos uno a uno, con `event_id` fijo `sync-PQ-…` (ejecutarlo dos veces da `duplicate`), `event_type: order.synced`, la fecha real (histórico por día del cuadro de mando) y el estado actual;
+    - termina cargando el **stock real** de la tienda y muestra un resumen con los pedidos por resultado, los rechazados y si el stock ha quedado cuadrado;
+  - comprobó en el código del back-office que acepta cualquier `event_type` (solo lo registra), qué devuelve `/inventory/import` y que `payment_method` es opcional.
+- **Errores detectados:** el primer test de pedidos daba por hecho una base de datos sin pedidos, pero el *seeder* de la tienda crea 4. Se corrigió para comprobar todos los pedidos y buscar los del test por referencia.
+- **Validación:**
+  - `php artisan test`: **124/124** en verde y Pint sin avisos;
+  - simulación de los nodos Code con datos de ejemplo (3 pedidos, uno cancelado y uno con descuento): el stock previo se calcula bien (17+3=20 y 68+2=70), los pedidos salen con su fecha y su estado, y un rechazo aparece en el resumen.
+- **Cambio de contrato pendiente:** la decisión 7 («la tienda no ofrece endpoints de consulta») pasa a tener dos excepciones de solo lectura para la sincronización inicial. Hay que actualizar el apartado 8.
+- **Ejecución en producción (12-nov):** Abel subió los 3 archivos a DonDominio, vació el back-office (volumen `erp_db`) y ejecutó el flujo:
+  - **12 pedidos enviados → 12 `created`, 0 rechazados;**
+  - stock previo: 10 actualizados y 3 sin cambios;
+  - **stock real: 0 actualizados y 13 sin cambios.** Después de cargar los pedidos, el stock del back-office ya coincidía exactamente con el de la tienda, lo que confirma el cálculo del stock previo;
+  - el back-office queda con los mismos pedidos, clientes y stock que la tienda.
+- **Cierre (12-nov):**
+  - Abel confirmó la copia de seguridad del volumen antes de vaciarlo (`erp_db_antes_sync.tgz`);
+  - a petición de Abel, la IA actualizó el contrato (`SIE-Tarea2`): apartado 1 (nueva dirección de carga inicial), apartado 8 (las tres rutas) y el **8.1 nuevo** (formato de los endpoints, el stock previo, `event_id` `sync-…`, `order.synced` y el resultado). Revisó la decisión 7 y añadió la 12 (carga inicial por API, no por SQL);
+  - subió el flujo a `SIE-Tarea2/n8n/workflows/sincronizacion_inicial.json`, el mismo JSON que se importó, revisado (sin secretos ni credenciales).
+- **Pendiente:** incidencias de soporte antiguas, cuando Álvaro termine el escenario 3.
