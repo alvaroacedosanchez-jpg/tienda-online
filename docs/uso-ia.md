@@ -926,3 +926,15 @@ Plantilla para cada entrada:
   - aviso firmado de un pedido inexistente → **502**, con `shop_status: 404` y `not_found`. El rechazo queda registrado en `integration_inbox` de la tienda;
   - **demo en producción:** un pedido real cambiado a «enviado» en el back-office → la tienda lo pasa a Enviado, se envía el correo al cliente y el back-office lo marca SINCRONIZADO; el cambio de stock de un producto en el back-office → mismo valor en la tienda.
 - **Pendiente:** exportar el flujo a `SIE-Tarea2/n8n/workflows/` y programar los reintentos de los avisos del back-office (nada los lanza ahora).
+
+### 2026-11-12 · Abel · Fase 3: reintentos de los avisos del back-office (n8n, flujo «Piquantum - Reintentos del back-office»)
+- **Tarea:** que los avisos del back-office que no llegan a n8n (porque está caído, reiniciándose o con el flujo despublicado) se reenvíen solos. El back-office tenía el endpoint (`POST /api/v1/internal/webhooks/retry`), pero nada lo llamaba.
+- **Tipo de uso:** IA como apoyo al desarrollo (Claude Code).
+- **Qué decidió Abel:** aceptó la propuesta de la IA (un tercer flujo en n8n en lugar de un cron en la VM) y le pidió el JSON para importarlo.
+- **Qué hizo la IA:**
+  - leyó el código del endpoint (reenvía hasta 50 avisos `PENDIENTE`, sin espera entre intentos, y tras 5 intentos `FALLIDO`);
+  - generó el flujo con un *Schedule Trigger* cada 5 minutos (para que un aviso tenga unos 25 minutos antes de agotarse) y un HTTP Request con un timeout de 120 s (cada reintento encadena back-office → n8n → tienda);
+  - revisó la exportación (sin secretos) y la subió a `SIE-Tarea2` con los otros dos flujos.
+- **Errores detectados:** al importarlo, n8n no conservó el ajuste «guardar solo las ejecuciones con error», así que guarda las 288 ejecuciones diarias. Abel lo cambia en los *Settings* del flujo.
+- **Validación:** Abel lo probó y lo publicó: ejecución manual con respuesta `ok`, y los avisos pendientes se reenvían.
+- **Resultado de conjunto:** las dos direcciones usan el patrón *outbox* con reintentos y son idempotentes por `event_id` en el extremo que recibe (back-office: `erp_processed_events`; tienda: `integration_inbox`).
